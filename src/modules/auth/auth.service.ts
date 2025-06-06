@@ -48,7 +48,6 @@ export class AuthService {
       });
 
       this.logger.log(`Usuário UID ${uid} registrado com sucesso no sistema.`);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { ...userProfile } = newUser;
       return {
         message: 'Usuário registrado com sucesso!',

@@ -1,98 +1,108 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+GameMate - Backend
+Este é o repositório do serviço de backend para o projeto GameMate, uma plataforma para conectar jogadores. Desenvolvido com o framework NestJS, este serviço é responsável por gerenciar usuários, autenticação e fornecer dados de jogos através da API da IGDB, com um sistema de cache robusto utilizando Redis.
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Tecnologias Utilizadas
+Framework Principal: NestJS (TypeScript)
+Banco de Dados: PostgreSQL
+ORM: Prisma
+Cache: Redis
+Containerização: Docker e Docker Compose
+Autenticação (Verificação): Firebase Admin SDK
+API de Jogos: IGDB
+Pré-requisitos
+Antes de começar, garanta que você tenha as seguintes ferramentas instaladas na sua máquina:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Git
+Node.js (v20.x ou superior)
+npm ou yarn
+Docker
+Docker Compose (geralmente já vem com o Docker Desktop)
+Configuração do Ambiente Local
+Siga os passos abaixo para configurar e rodar o projeto na sua máquina.
 
-## Description
+1. Clonar o Repositório
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Bash
 
-## Project setup
+git clone <URL_DO_SEU_REPOSITORIO>
+cd gamemate-backend
+2. Configurar Variáveis de Ambiente
 
-```bash
-$ npm install
-```
+Este projeto utiliza um arquivo .env para gerenciar as variáveis de ambiente.
 
-## Compile and run the project
+Crie um arquivo chamado .env na raiz do projeto.
+Copie o conteúdo do exemplo abaixo para o seu novo arquivo .env e preencha com suas próprias credenciais.
+.env.example
 
-```bash
-# development
-$ npm run start
+Snippet de código
 
-# watch mode
-$ npm run start:dev
+# PostgreSQL
+POSTGRES_USER=gamemate
+POSTGRES_PASSWORD=gamematepass
+POSTGRES_DB=gamemate
+POSTGRES_PORT=5432
+DATABASE_URL="postgresql://gamemate:gamematepass@localhost:5432/gamemate?schema=public"
 
-# production mode
-$ npm run start:prod
-```
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
 
-## Run tests
+# IGDB / Twitch API
+IGDB_CLIENT_ID=SEU_CLIENT_ID_DA_TWITCH_AQUI
+IGDB_CLIENT_SECRET=SEU_CLIENT_SECRET_DA_TWITCH_AQUI
 
-```bash
-# unit tests
-$ npm run test
+# Porta da Aplicação NestJS
+PORT=3000
+3. Configurar Credenciais do Firebase
 
-# e2e tests
-$ npm run test:e2e
+Obtenha o seu arquivo de credenciais serviceAccountKey.json do console do Firebase.
+Renomeie-o para firebase-service-account.json.
+Coloque este arquivo na raiz do projeto.
+Importante: Este arquivo é sensível e já deve estar no seu .gitignore para não ser enviado ao repositório.
+4. Iniciar a Infraestrutura com Docker
 
-# test coverage
-$ npm run test:cov
-```
+O PostgreSQL e o Redis são gerenciados pelo Docker Compose. Para iniciá-los, execute:
 
-## Deployment
+Bash
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+docker-compose up -d
+O comando -d executa os containers em modo "detached" (em segundo plano).
+Para verificar se os containers estão rodando, use docker-compose ps.
+5. Instalar as Dependências do Projeto
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Bash
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+npm install
+# ou
+yarn install
+6. Executar as Migrações do Banco de Dados
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Com a infraestrutura Docker rodando, precisamos criar as tabelas no banco de dados. O Prisma gerencia isso para nós.
 
-## Resources
+Bash
 
-Check out a few resources that may come in handy when working with NestJS:
+npx prisma migrate dev
+Este comando irá ler o seu schema.prisma e aplicar as migrações necessárias no banco de dados PostgreSQL.
+Rodando a Aplicação
+Após a configuração, você pode iniciar o servidor NestJS.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Modo de Desenvolvimento
 
-## Support
+Este modo observa alterações nos arquivos e recarrega o servidor automaticamente.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Bash
 
-## Stay in touch
+npm run start:dev
+A aplicação estará disponível em http://localhost:3000 (ou na porta definida no seu .env).
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Modo de Produção
 
-## License
+Para rodar em modo de produção, primeiro compile o projeto e depois inicie o servidor:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Bash
+
+# 1. Compilar o projeto
+npm run build
+
+# 2. Iniciar em modo de produção
+npm run start:prod
