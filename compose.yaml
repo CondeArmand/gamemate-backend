@@ -1,0 +1,56 @@
+services:
+  # --- Serviço do Banco de Dados PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine # Usando a versão 16 (LTS estável)
+    container_name: gamemate_postgres
+    restart: unless-stopped # Reinicia a menos que seja parado manualmente
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gamemate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gamematepass}
+      POSTGRES_DB: ${POSTGRES_DB:-gamemate}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432' # Mapeia a porta 5432
+    volumes:
+      # Mapeia o volume para o diretório padrão de dados do Postgres
+      - gamemate-db:/var/lib/postgresql/data
+    healthcheck: # Verificação de saúde
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-gamemate} -d ${POSTGRES_DB:-gamemate}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Serviço do pgAdmin (Interface Gráfica para Postgres) ---
+  pgadmin:
+    image: dpage/pgadmin4:latest # Imagem oficial do pgAdmin 4
+    container_name: gamemate_pgadmin
+    restart: unless-stopped
+    environment:
+      # Defina seu email e senha de login para o pgAdmin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@gamemate.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-adminpass}
+    ports:
+      - '5050:80' # Mapeia a porta 80 do container para 5050 na sua máquina
+    volumes:
+      # Volume para persistir as configurações e servidores do pgAdmin
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on: # Garante que o pgAdmin espere o Postgres estar saudável
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine # Uma imagem oficial e leve do Redis
+    container_name: gamemate_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379' # Mapeia a porta padrão do Redis para a sua máquina
+    volumes:
+      - redis-data:/data # Volume para persistir os dados do Redis (opcional para cache)
+
+volumes:
+  gamemate-db: # Volume para os dados do Postgres
+  pgadmin-data: # Volume para os dados do pgAdmin
+  redis-data: # Volume para os dados do Redis
