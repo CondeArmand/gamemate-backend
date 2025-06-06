@@ -6,12 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config'; // Usaremos ConfigService para as variáveis de ambiente
 import { firstValueFrom } from 'rxjs';
-
-interface TwitchToken {
-  access_token: string;
-  expires_in: number;
-  token_type: string;
-}
+import { TwitchToken, IGDBGame } from './types/igdb.types';
 
 @Injectable()
 export class GamesService {
@@ -25,7 +20,6 @@ export class GamesService {
   ) {}
 
   private async getAccessToken(): Promise<string> {
-    // Se temos um token e ele ainda não expirou, use-o
     if (this.token && Date.now() < this.tokenExpiryTime) {
       return this.token.access_token;
     }
@@ -40,7 +34,7 @@ export class GamesService {
         this.httpService.post<TwitchToken>(url),
       );
       this.token = response.data;
-      // Define o tempo de expiração com uma pequena margem de segurança (ex: 60s)
+
       this.tokenExpiryTime = Date.now() + (this.token.expires_in - 60) * 1000;
       this.logger.log('Novo token de acesso gerado com sucesso.');
       return this.token.access_token;
@@ -56,7 +50,7 @@ export class GamesService {
    * Busca jogos na API da IGDB.
    * @param searchTerm Termo de busca para os jogos.
    */
-  async searchGamesByName(searchTerm: string) {
+  async searchGamesByName(searchTerm: string): Promise<IGDBGame[]> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
@@ -70,22 +64,19 @@ export class GamesService {
 
     try {
       const response = await firstValueFrom(
-        this.httpService.post('https://api.igdb.com/v4/games', query, {
-          headers: {
-            'Client-ID': clientId,
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'text/plain', // IGDB espera APICalypse como texto
+        this.httpService.post<IGDBGame[]>(
+          'https://api.igdb.com/v4/games',
+          query,
+          {
+            headers: {
+              'Client-ID': clientId,
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'text/plain',
+            },
           },
-        }),
+        ),
       );
-      // Ajusta a URL da capa para ter uma melhor qualidade
-      return response.data.map((game: any) => ({
-        ...game,
-        cover: {
-          ...game.cover,
-          url: game.cover.url.replace('t_thumb', 't_cover_big'),
-        },
-      }));
+      return response.data.map((game) => this.formatGameData(game));
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos para o termo "${searchTerm}"`,
@@ -97,7 +88,7 @@ export class GamesService {
     }
   }
 
-  async getFeaturedGames() {
+  async getFeaturedGames(): Promise<IGDBGame[]> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
@@ -117,26 +108,20 @@ export class GamesService {
     this.logger.log('Buscando jogos de destaque na IGDB...');
     try {
       const response = await firstValueFrom(
-        this.httpService.post('https://api.igdb.com/v4/games', query, {
-          headers: {
-            'Client-ID': clientId,
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'text/plain',
+        this.httpService.post<IGDBGame[]>(
+          'https://api.igdb.com/v4/games',
+          query,
+          {
+            headers: {
+              'Client-ID': clientId,
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'text/plain',
+            },
           },
-        }),
+        ),
       );
       // Ajusta as URLs de capa e screenshots para ter uma melhor qualidade
-      return response.data.map((game: any) => ({
-        ...game,
-        cover: {
-          ...game.cover,
-          url: game.cover.url.replace('t_thumb', 't_cover_big'),
-        },
-        screenshots: game.screenshots.map((ss: any) => ({
-          ...ss,
-          url: ss.url.replace('t_thumb', 't_screenshot_huge'),
-        })),
-      }));
+      return response.data.map((game) => this.formatGameData(game));
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos de destaque`,
@@ -146,5 +131,19 @@ export class GamesService {
         'Falha ao buscar dados dos jogos de destaque.',
       );
     }
+  }
+
+  private formatGameData(game: IGDBGame): IGDBGame {
+    return {
+      ...game,
+      cover: {
+        ...game.cover,
+        url: game.cover.url.replace('t_thumb', 't_cover_big'),
+      },
+      screenshots: game.screenshots.map((ss) => ({
+        ...ss,
+        url: ss.url.replace('t_thumb', 't_screenshot_huge'),
+      })),
+    };
   }
 }
