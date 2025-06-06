@@ -8,12 +8,10 @@ export class FirebaseService implements OnModuleInit {
   private app: admin.app.App;
 
   onModuleInit(): any {
-    const serviceAccountPath = path.resolve(
-      __dirname,
-      '..',
-      '..',
-      'firebase-service-account.json',
-    );
+    const serviceAccountPath =
+      process.env.NODE_ENV === 'production'
+        ? '/etc/secrets/firebase-service-account.json' // Render monta os secret files aqui
+        : path.resolve('./firebase-service-account.json');
 
     try {
       if (!admin.apps.length) {
