@@ -54,13 +54,12 @@ export class GamesService {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
-    // Query APICalypse para buscar jogos por nome e trazer campos essenciais
     const query = `
-       fields name, summary, cover.url, first_release_date, total_rating, genres.name, platforms.abbreviation;
-       search "${searchTerm}";
-       where cover.url != null & total_rating != null;
-       limit 20;
-     `;
+         fields name, summary, cover.url, first_release_date, total_rating, genres.name, platforms.abbreviation, screenshots.url;
+         search "${searchTerm}";
+         where cover.url != null & total_rating != null & summary != null & screenshots.url != null;
+         limit 20;
+       `;
 
     try {
       const response = await firstValueFrom(
@@ -76,12 +75,21 @@ export class GamesService {
           },
         ),
       );
+
+      if (!Array.isArray(response.data)) {
+        this.logger.warn(
+          `A resposta da IGDB para o termo "${searchTerm}" não foi um array. Retornando array vazio.`,
+          response.data,
+        );
+        return [];
+      }
+
       return response.data.map((game) => this.formatGameData(game));
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos para o termo "${searchTerm}"`,
-        error.response?.data || error.message,
-      );
+        error.message,
+      ); // Loga a mensagem do erro original
       throw new InternalServerErrorException(
         'Falha ao buscar dados dos jogos.',
       );
