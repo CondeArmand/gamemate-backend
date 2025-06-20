@@ -21,7 +21,7 @@ import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
     CacheModule.register({
       isGlobal: true,
       store: redisStore,
-      host: process.env.REDIS_HOST || 'localhost',
+      host: process.env.REDIS_URL ?? 'redis://localhost:6379',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
       ttl: 60 * 10,
     }),
@@ -31,10 +31,7 @@ import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
-        },
+        redis: configService.get<string>('REDIS_URL'),
       }),
       inject: [ConfigService],
     }),

@@ -5,14 +5,14 @@ import session from 'express-session';
 import passport from 'passport';
 import { RedisStore } from 'connect-redis';
 import Redis from 'ioredis';
+import * as process from 'node:process';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const redisClient = new Redis({
-    host: process.env.REDIS_HOST,
-    port: parseInt(process.env.REDIS_PORT ?? '123', 10),
-  });
+  const redisClient = new Redis(
+    process.env.REDIS_URL ?? 'redis://localhost:6379',
+  );
 
   // 4. Inicializa o RedisStore com o cliente
   const redisStore = new RedisStore({
