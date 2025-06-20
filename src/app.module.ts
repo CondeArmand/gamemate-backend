@@ -7,7 +7,14 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GamesModule } from './modules/games/games.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { RepositoriesModule } from './repositories/repositories.module';
+import { UsersModule } from './modules/users/users.module';
+import { BullModule } from '@nestjs/bull';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
 
 @Module({
   imports: [
@@ -21,10 +28,28 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: configService.get<string>('REDIS_HOST'),
+          port: configService.get<number>('REDIS_PORT'),
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    BullBoardModule.forRoot({
+      route: '/admin/queues', // O painel ficará acessível em http://localhost:3000/admin/queues
+      adapter: ExpressAdapter, // Define o adaptador do servidor web
+    }),
+    JobsModule,
+    SteamGridDbModule,
     FirebaseModule,
     PrismaModule,
+    RepositoriesModule,
     AuthModule,
     GamesModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

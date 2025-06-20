@@ -13,10 +13,78 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- Modelos Principais ---
+
 model User {
   id        String   @id
   email     String   @unique
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  linkedAccounts LinkedAccount[]
+  ownedGames     UserOwnedGame[]
+}
+
+model Game {
+  id         String  @id @default(cuid()) // ID interno do nosso sistema
+  igdbId     String? @unique // ID do jogo na IGDB para evitar duplicatas
+  steamAppId String? @unique // ID do jogo na Steam para evitar duplicatas
+
+  name        String
+  summary     String?   @db.Text
+  coverUrl    String?
+  releaseDate DateTime?
+  rating      Float?
+
+  genres     String[] @default([]) // Array de gêneros do jogo (ex: ["Ação", "Aventura"])
+  developers String[] @default([]) // Array de desenvolvedores do jogo (ex: ["Valve", "CD Projekt Red"])
+  publishers String[] @default([]) // Array de publicadoras do jogo (ex: ["Valve", "CD Projekt"])
+  platforms  String[] @default([]) // Array de plataformas do jogo (ex: ["PC", "PS4", "Xbox One"])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relação
+  owners UserOwnedGame[] // Ligações com os usuários que possuem este jogo
+}
+
+// --- Modelos de Relação e Suporte ---
+
+model LinkedAccount {
+  id                String   @id @default(cuid())
+  provider          Provider // STEAM, GOG, etc.
+  providerAccountId String // ID do usuário naquela plataforma (ex: SteamID64)
+  username          String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider]) // Um usuário só pode ter uma conta por loja
+}
+
+// Tabela de Junção para a relação Muitos-para-Muitos entre User e Game
+model UserOwnedGame {
+  userId String
+  gameId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  playtimeMinutes Int? // Tempo de jogo em minutos (específico da Steam, por exemplo)
+  lastPlayedAt    DateTime? // Última vez que jogou (específico da Steam, por exemplo)
+  sourceProvider  Provider // Fonte do jogo (Steam, GOG, etc.)
+
+  addedAt DateTime @default(now())
+
+  @@id([userId, gameId]) // Chave primária composta
+}
+
+// Enum para os provedores de contas/lojas
+enum Provider {
+  STEAM
+  GOG
 }
