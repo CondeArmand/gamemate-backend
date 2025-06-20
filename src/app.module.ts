@@ -21,8 +21,7 @@ import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
     CacheModule.register({
       isGlobal: true,
       store: redisStore,
-      host: process.env.REDIS_URL ?? 'redis://localhost:6379',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
       ttl: 60 * 10,
     }),
     ConfigModule.forRoot({
