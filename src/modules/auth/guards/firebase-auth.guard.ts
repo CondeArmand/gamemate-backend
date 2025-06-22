@@ -10,7 +10,8 @@ import { FirebaseService } from '../../../firebase/firebase.service';
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
   constructor(
-    @Inject(FirebaseService) private readonly firebaseService: FirebaseService,
+    @Inject(FirebaseService)
+    protected readonly firebaseService: FirebaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,7 +31,7 @@ export class FirebaseAuthGuard implements CanActivate {
     }
   }
 
-  private extractToken(request: any): string | undefined {
+  protected extractToken(request: any): string | undefined {
     // 1. Tenta pegar do cabeçalho Authorization (padrão)
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.split(' ')[0] === 'Bearer') {

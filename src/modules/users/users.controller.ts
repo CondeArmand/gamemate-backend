@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { FirebaseAuthGuard } from 'src/modules/auth/guards/firebase.guard';
+import { FirebaseAuthGuard } from 'src/modules/auth/guards/firebase-auth.guard';
 import {
   CurrentUser,
   AuthenticatedUser,

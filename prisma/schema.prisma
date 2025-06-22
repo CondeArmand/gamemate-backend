@@ -87,4 +87,5 @@ model UserOwnedGame {
 enum Provider {
   STEAM
   GOG
+  GAMEMATE
 }

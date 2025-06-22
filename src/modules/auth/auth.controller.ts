@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { FirebaseAuthGuard } from './guards/firebase.guard';
+import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { AuthGuard } from '@nestjs/passport';
 import {
   AuthenticatedUser,
@@ -63,7 +63,6 @@ export class AuthController {
 
     // Armazena o UID na sessão
     req.session.firebaseUid = gamemateUserId;
-
     // Salva a sessão explicitamente e, no callback, redireciona para o próximo passo
     req.session.save((err) => {
       if (err) {
@@ -75,8 +74,8 @@ export class AuthController {
           `${process.env.FRONTEND_URL}/auth-error?error=session_save`,
         );
       }
-      // Redireciona para o nosso próprio endpoint de redirect da Steam
-      return res.redirect('/auth/steam/redirect');
+      // Redireciona para o nosso próprio endpoint de autenticação da Steam
+      return res.redirect('/auth/steam/login');
     });
   }
 
@@ -84,9 +83,12 @@ export class AuthController {
    * PASSO 2: O passo 1 redireciona para cá.
    * Este endpoint apenas ativa o AuthGuard da Steam para redirecionar para a Steam.
    */
-  @Get('steam/redirect')
+  @Get('steam/login')
   @UseGuards(AuthGuard('steam'))
-  steamAuthRedirect() {}
+  steamAuthRedirect() {
+    /* TODO document why this method 'steamAuthRedirect' is empty */
+    // Este método não precisa fazer nada, pois o AuthGuard já redireciona para a Steam.
+  }
 
   /**
    * PASSO 3: A Steam redireciona para cá após a autorização do usuário.
@@ -99,7 +101,7 @@ export class AuthController {
   ) {
     this.logger.log('Recebendo callback da Steam...');
     const steamProfile = req.user as SteamProfile;
-    const gamemateUserId = req.session.firebaseUid; // <-- Agora deve funcionar!
+    const gamemateUserId = req.session.firebaseUid;
 
     if (!gamemateUserId) {
       this.logger.error(
