@@ -16,6 +16,7 @@ export interface IGDBGenre {
 
 export interface IGDBPlatform {
   id: number;
+  name: string;
   abbreviation: string;
 }
 

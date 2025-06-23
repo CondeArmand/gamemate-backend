@@ -1,4 +1,4 @@
-import { FirebaseGuard } from './firebase.guard';
+import { FirebaseGuard } from './firebase-auth.guard';
 
 describe('FirebaseGuard', () => {
   it('should be defined', () => {

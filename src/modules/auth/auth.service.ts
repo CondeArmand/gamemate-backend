@@ -6,9 +6,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { UserRepository } from './repositories/user.repository';
 import { FirebaseTokenValidator } from './validators/firebase-token.validator';
 import { FirebaseRollbackHelper } from './helpers/firebase-rollback.helper';
+import { UserRepository } from 'src/repositories/user.repository';
+import { LinkedAccountRepository } from '../../repositories/linked-account.repository';
+import { Provider } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +19,7 @@ export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly tokenValidator: FirebaseTokenValidator,
+    private readonly linkedAccountRepository: LinkedAccountRepository,
     private readonly rollbackHelper: FirebaseRollbackHelper,
   ) {}
 
@@ -68,5 +71,23 @@ export class AuthService {
         'Ocorreu um erro ao registrar o usuário.',
       );
     }
+  }
+
+  async linkSteamAccount(
+    userId: string,
+    steamId: string,
+    steamUsername: string,
+  ) {
+    this.logger.log(
+      `Vinculando conta Steam (ID: ${steamId}) ao usuário GameMate (ID: ${userId})`,
+    );
+
+    // Usa o repositório para criar ou atualizar o registro
+    return this.linkedAccountRepository.upsert({
+      userId: userId,
+      provider: Provider.STEAM, // Usa o valor do Enum do Prisma
+      providerAccountId: steamId,
+      username: steamUsername,
+    });
   }
 }

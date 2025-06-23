@@ -9,5 +9,6 @@ import { GamesController } from './games.controller';
   ],
   controllers: [GamesController],
   providers: [GamesService],
+  exports: [GamesService], // Exporta o GamesService para ser usado em outros módulos
 })
 export class GamesModule {}

@@ -1,6 +1,6 @@
 import { Controller, Get, Request, UseGuards } from '@nestjs/common';
 import { AppService } from './app.service';
-import { FirebaseAuthGuard } from './auth/firebase.guard';
+import { FirebaseAuthGuard } from './modules/auth/guards/firebase-auth.guard';
 
 @Controller()
 export class AppController {
