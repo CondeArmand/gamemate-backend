@@ -8,6 +8,7 @@ import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repo
 import { parseSteamDate } from './helpers/date-parser.helper';
 import { Prisma, Provider } from '@prisma/client';
 import { SteamGridDbService } from '../steamgriddb/steamgriddb.service';
+import { isBefore, subDays } from 'date-fns';
 
 // Interface para os dados do job de enriquecimento
 interface EnrichGameJobData {
@@ -33,6 +34,28 @@ export class GameEnrichmentProcessor {
   async handleEnrichGame(job: Job<EnrichGameJobData>) {
     const { userId, steamAppId, steamGameName, playtime } = job.data;
     const steamAppIdStr = steamAppId.toString();
+
+    const existingGame = await this.gameRepository.findBySteamId(steamAppIdStr);
+    const staleThreshold = subDays(new Date(), 180);
+
+    // Condição para o "caminho rápido": o jogo existe e foi atualizado recentemente.
+    if (existingGame && !isBefore(existingGame.updatedAt, staleThreshold)) {
+      this.logger.log(
+        `[Fast Path] Jogo "${existingGame.name}" já está atualizado. Pulando enriquecimento.`,
+      );
+
+      await this.userOwnedGameRepository.upsert(
+        userId,
+        existingGame.id,
+        playtime,
+        Provider.STEAM,
+      );
+      this.logger.debug(
+        `Tempo de jogo atualizado para "${existingGame.name}".`,
+      );
+      return;
+    }
+
     this.logger.debug(
       `Iniciando enriquecimento para: ${steamGameName} (${steamAppIdStr})`,
     );
