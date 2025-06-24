@@ -7,9 +7,12 @@ import { RedisStore } from 'connect-redis';
 import * as process from 'node:process';
 import { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from './redis/redis.constants';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  app.set('trust proxy', 1);
 
   const redisClient = app.get<RedisClientType>(REDIS_CLIENT);
 
@@ -28,14 +31,19 @@ async function bootstrap() {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24 * 7,
+        sameSite: 'lax',
       },
     }),
   );
 
   app.use(passport.initialize());
-  app.use(passport.session()); // <-- ADICIONAL: Você precisa disso para sessões persistentes com Passport
+  app.use(passport.session());
 
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    credentials: true,
+  });
+
   app.enableShutdownHooks();
   app.useGlobalPipes(new ValidationPipe());
 
