@@ -6,22 +6,22 @@ import { FirebaseModule } from '../../firebase/firebase.module'; // Ou o caminho
 import { FirebaseTokenValidator } from './validators/firebase-token.validator';
 import { FirebaseRollbackHelper } from './helpers/firebase-rollback.helper';
 import { PassportModule } from '@nestjs/passport';
-import { SteamStrategy } from './strategies/steam.strategy';
-import { BullModule } from '@nestjs/bull';
+import { SteamAuthGuard } from './guards/steam-auth.guard';
+import { JobsModule } from '../jobs/jobs.module';
+import { SteamAuthModule } from './steam.module';
 
 @Module({
   imports: [
+    SteamAuthModule,
     PrismaModule,
     FirebaseModule,
-    BullModule.registerQueue({
-      name: 'game-sync',
-    }),
+    JobsModule,
     PassportModule.register({ session: true }),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    SteamStrategy,
+    SteamAuthGuard,
     FirebaseTokenValidator,
     FirebaseRollbackHelper,
   ],

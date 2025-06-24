@@ -1,21 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import session from 'express-session'; // Mudei para importação de namespace
-import passport from 'passport'; // Mudei para importação de namespace
-import { RedisStore } from 'connect-redis'; // 'connect-redis' já é compatível
-import { createClient } from 'redis'; // <-- IMPORTANTE: Troque a importação
+import session from 'express-session';
+import passport from 'passport';
+import { RedisStore } from 'connect-redis';
 import * as process from 'node:process';
+import { RedisClientType } from 'redis';
+import { REDIS_CLIENT } from './redis/redis.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const redisClient = createClient({
-    url: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  });
-
-  // 2. Conecte o cliente. É um passo necessário na v4.
-  await redisClient.connect();
+  const redisClient = app.get<RedisClientType>(REDIS_CLIENT);
 
   const redisStore = new RedisStore({
     client: redisClient,

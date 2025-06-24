@@ -17,17 +17,18 @@ const GAME_ENRICHMENT_QUEUE_NAME = 'game-enrichment';
       {
         name: GAME_SYNC_QUEUE_NAME,
       },
-      { name: GAME_ENRICHMENT_QUEUE_NAME },
+      {
+        name: GAME_ENRICHMENT_QUEUE_NAME,
+      },
     ),
-    // 3. Informa ao Bull Board sobre esta fila específica
     BullBoardModule.forFeature(
       {
         name: GAME_SYNC_QUEUE_NAME,
-        adapter: BullAdapter, // Usa o adaptador para o Bull
+        adapter: BullAdapter,
       },
       {
         name: GAME_ENRICHMENT_QUEUE_NAME,
-        adapter: BullAdapter, // Usa o adaptador para o Bull
+        adapter: BullAdapter,
       },
     ),
     SteamModule,
@@ -35,5 +36,6 @@ const GAME_ENRICHMENT_QUEUE_NAME = 'game-enrichment';
     SteamGridDbModule,
   ],
   providers: [SteamSyncProcessor, GameEnrichmentProcessor],
+  exports: [BullModule],
 })
 export class JobsModule {}
