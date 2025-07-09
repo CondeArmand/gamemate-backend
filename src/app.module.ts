@@ -1,5 +1,5 @@
-import { CacheModule } from '@nestjs/cache-manager'; // <-- Importa o CacheModule
-import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
+import { Module, Global } from '@nestjs/common';
 import { redisStore } from 'cache-manager-redis-store';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -15,17 +15,20 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
+import { RedisModule } from './redis/redis.module';
 
+@Global()
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '.env.local'], // Carrega variáveis de ambiente de arquivos .env e .env.local
+    }),
     CacheModule.register({
       isGlobal: true,
       store: redisStore,
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      url: process.env.REDIS_URL ?? 'redis://localhost:6379',
       ttl: 60 * 10,
-    }),
-    ConfigModule.forRoot({
-      isGlobal: true,
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -38,6 +41,7 @@ import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
       route: '/admin/queues', // O painel ficará acessível em http://localhost:3000/admin/queues
       adapter: ExpressAdapter, // Define o adaptador do servidor web
     }),
+    RedisModule,
     JobsModule,
     SteamGridDbModule,
     FirebaseModule,
