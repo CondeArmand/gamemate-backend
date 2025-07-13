@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Param,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -13,10 +15,24 @@ import {
   AuthenticatedUser,
 } from '../auth/decorators/current-user.decorator';
 import { Provider } from '@prisma/client';
+import { AddGameDto } from './dto/add-game.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post('me/games')
+  @UseGuards(FirebaseAuthGuard)
+  @HttpCode(201) // Retorna "201 Created" em caso de sucesso.
+  addGame(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() addGameDto: AddGameDto,
+  ) {
+    const userId = user.uid;
+    const { gameId } = addGameDto;
+    console.log(gameId);
+    return this.usersService.addGameToLibrary(userId, gameId);
+  }
 
   @Get('me')
   @UseGuards(FirebaseAuthGuard)

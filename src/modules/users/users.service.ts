@@ -1,14 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { UserRepository } from 'src/repositories/user.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
 import { Provider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { GameRepository } from '../../repositories/game.repository';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly userOwnedGameRepository: UserOwnedGameRepository,
+    private readonly gameRepository: GameRepository,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -56,6 +62,30 @@ export class UsersService {
       await tx.linkedAccount.delete({
         where: { userId_provider: { userId, provider } },
       });
+    });
+  }
+
+  async addGameToLibrary(userId: string, gameId: string) {
+    // Passo 1: Verificar se o jogo existe no nosso banco de dados.
+    // Isso previne que tentemos adicionar uma relação para um jogo inexistente.
+    await this.gameRepository.findById(gameId); // Reutiliza o método que já lança NotFoundException
+
+    // Passo 2: Verificar se o usuário já não possui este jogo.
+    const existingOwnership =
+      await this.userOwnedGameRepository.findByUserIdAndGameId(userId, gameId);
+
+    if (existingOwnership) {
+      throw new ConflictException('Este jogo já está na sua biblioteca.');
+    }
+
+    // Passo 3: Criar o novo registro de posse.
+    return this.prisma.userOwnedGame.create({
+      data: {
+        userId,
+        gameId,
+        playtimeMinutes: 0, // Jogos adicionados manualmente começam com 0 minutos.
+        sourceProvider: Provider.GAMEMATE, // Marca a origem como manual.
+      },
     });
   }
 }

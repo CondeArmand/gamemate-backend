@@ -13,7 +13,7 @@ import {
   CurrentUser,
 } from '../auth/decorators/current-user.decorator';
 import { OptionalFirebaseAuthGuard } from '../auth/guards/optional-firebase-auth.guard';
-import { ResolveGameDto } from './resolve-game.dto';
+import { ResolveGameDto } from './dto/resolve-game.dto';
 
 @Controller('games')
 @UseInterceptors(CacheInterceptor) // Usa o interceptor de cache em todas as rotas deste controller
