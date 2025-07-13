@@ -5,10 +5,6 @@ import { UserOwnedGame, Game, Provider } from '@prisma/client';
 export class UserOwnedGameRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Cria ou atualiza a relação entre um usuário e um jogo,
-   * incluindo o tempo de jogo.
-   */
   async upsert(
     userId: string,
     gameId: string,
@@ -35,13 +31,20 @@ export class UserOwnedGameRepository {
     return this.prisma.userOwnedGame.findMany({
       where: { userId },
       include: {
-        // Inclui os dados completos do jogo relacionado em cada resultado
         game: true,
       },
       orderBy: {
-        // Opcional: ordena os jogos por tempo de jogo, por exemplo
         playtimeMinutes: 'desc',
       },
+    });
+  }
+
+  async findByUserIdAndGameId(
+    userId: string,
+    gameId: string,
+  ): Promise<UserOwnedGame | null> {
+    return this.prisma.userOwnedGame.findUnique({
+      where: { userId_gameId: { userId, gameId } },
     });
   }
 }

@@ -25,22 +25,21 @@ export class UsersController {
     return this.usersService.getUserProfile(userId);
   }
 
-  @Get('me/games') // O endpoint será GET /users/me/games
-  @UseGuards(FirebaseAuthGuard) // Protege a rota
+  @Get('me/games')
+  @UseGuards(FirebaseAuthGuard)
   getOwnedGames(@CurrentUser() user: AuthenticatedUser) {
     const userId = user.uid;
     return this.usersService.findUserOwnedGames(userId);
   }
 
-  @Delete('me/linked-accounts/:provider') // Ex: DELETE /users/me/linked-accounts/STEAM
+  @Delete('me/linked-accounts/:provider')
   @UseGuards(FirebaseAuthGuard)
-  @HttpCode(204) // Retorna "204 No Content" em caso de sucesso, um padrão para DELETE
+  @HttpCode(204)
   async unlinkAccount(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('provider') provider: Provider, // Valida se o provider é um do nosso Enum
+    @Param('provider') provider: Provider,
   ) {
     const userId = user.uid;
     await this.usersService.unlinkStoreAccount(userId, provider);
-    // Não precisa retornar nada no corpo da resposta
   }
 }

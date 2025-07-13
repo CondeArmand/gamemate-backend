@@ -1,13 +1,18 @@
 import { HttpService } from '@nestjs/axios';
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config'; // Usaremos ConfigService para as variáveis de ambiente
 import { firstValueFrom } from 'rxjs';
 import { TwitchToken, IGDBGame } from './types/igdb.types';
 import stringSimilarity from 'string-similarity';
+import { GameRepository } from '../../repositories/game.repository';
+import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
+import { Game, Prisma } from '@prisma/client';
 
 @Injectable()
 export class GamesService {
@@ -18,6 +23,8 @@ export class GamesService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly gameRepository: GameRepository,
+    private readonly userOwnedGameRepository: UserOwnedGameRepository,
   ) {}
 
   private async getAccessToken(): Promise<string> {
@@ -56,14 +63,14 @@ export class GamesService {
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
     const query = `
-         fields 
+        fields 
         name, summary, cover.url, first_release_date, total_rating, 
         genres.name, platforms.name, screenshots.url, 
         involved_companies.company.name, involved_companies.developer, involved_companies.publisher;
-         search "${searchTerm}";
-         where cover.url != null & total_rating != null & summary != null & screenshots.url != null;
-         limit 20;
-       `;
+        search "${searchTerm}";
+        where cover.url != null & total_rating != null & summary != null & screenshots.url != null;
+        limit 20;
+      `;
 
     try {
       const response = await firstValueFrom(
@@ -245,9 +252,9 @@ export class GamesService {
     // Pedimos todos os campos ricos que definimos no nosso tipo IGDBGame.
     const query = `
       fields name, summary, cover.url, first_release_date, total_rating, 
-             genres.name, platforms.name, screenshots.url, 
-             involved_companies.company.name, involved_companies.developer, 
-             involved_companies.publisher;
+      genres.name, platforms.name, screenshots.url, 
+      involved_companies.company.name, involved_companies.developer, 
+      involved_companies.publisher;
       where id = ${igdbId};
       limit 1;
     `;
@@ -282,6 +289,91 @@ export class GamesService {
       // Retorna null em caso de erro para que o fluxo do worker possa continuar.
       return null;
     }
+  }
+
+  async resolveGame(query: {
+    igdbId?: string;
+    steamAppId?: string;
+  }): Promise<{ id: string }> {
+    const { igdbId, steamAppId } = query;
+
+    if (igdbId) {
+      // Tenta encontrar pelo igdbId
+      let game = await this.gameRepository.findByIgdbId(igdbId);
+      if (game) {
+        return { id: game.id };
+      }
+      // Se não encontrar, enriquece e cria
+      game = await this.enrichAndCreateFromIgdb(igdbId);
+      if (!game) {
+        throw new NotFoundException(
+          `Jogo com IGDB ID ${igdbId} não encontrado na fonte externa.`,
+        );
+      }
+      return { id: game.id };
+    } else if (steamAppId) {
+      // Tenta encontrar pelo steamAppId
+      const game = await this.gameRepository.findBySteamId(steamAppId);
+      if (!game) {
+        // Este caso deve ser raro, pois um jogo com steamAppId deveria ter sido sincronizado.
+        throw new NotFoundException(
+          `Jogo com Steam AppID ${steamAppId} não encontrado em nosso banco.`,
+        );
+      }
+      return { id: game.id };
+    }
+
+    throw new BadRequestException(
+      'É necessário fornecer um igdbId ou steamAppId.',
+    );
+  }
+
+  async findGameDetails(gameId: string, userId?: string) {
+    const game = await this.gameRepository.findById(gameId);
+
+    const response: any = { ...game };
+    response.isOwned = false;
+
+    if (userId) {
+      const userOwnedGame =
+        await this.userOwnedGameRepository.findByUserIdAndGameId(
+          userId,
+          gameId,
+        );
+
+      if (userOwnedGame) {
+        response.isOwned = true;
+        response.playtimeMinutes = userOwnedGame.playtimeMinutes;
+      }
+    }
+
+    return response;
+  }
+
+  private async enrichAndCreateFromIgdb(igdbId: string): Promise<Game | null> {
+    this.logger.log(
+      `[Resolve] Jogo com IGDB ID ${igdbId} não encontrado localmente. Buscando na IGDB...`,
+    );
+    const igdbGame = await this.findGameByIgdbId(igdbId); // Método que já tínhamos
+    if (!igdbGame) return null;
+
+    // Lógica de enriquecimento simplificada
+    const gameData: Prisma.GameCreateInput = {
+      igdbId: igdbGame.id.toString(),
+      name: igdbGame.name,
+      summary: igdbGame.summary,
+      rating: igdbGame.total_rating,
+      releaseDate: igdbGame.first_release_date
+        ? new Date(igdbGame.first_release_date * 1000)
+        : null,
+      genres: igdbGame.genres?.map((g) => g.name) || [],
+      platforms: igdbGame.platforms?.map((p) => p.name) || [],
+      // Tenta buscar a capa
+      coverUrl: igdbGame.cover?.url?.replace('t_thumb', 't_cover_big') || null,
+    };
+
+    // Salva no banco usando o smartUpsert para evitar duplicatas
+    return this.gameRepository.smartUpsert(gameData);
   }
 
   private formatGameData(game: IGDBGame): IGDBGame {

@@ -13,17 +13,13 @@ export class UsersService {
   ) {}
 
   async getUserProfile(userId: string) {
-    const user = await this.userRepository.findById(userId);
-
-    return user;
+    return await this.userRepository.findById(userId);
   }
 
   async findUserOwnedGames(userId: string) {
     const ownedGamesRelations =
       await this.userOwnedGameRepository.findGamesByUserId(userId);
 
-    // Mapeia o resultado para retornar uma lista limpa apenas com os dados dos jogos
-    // e o tempo de jogo, que é o que o frontend provavelmente precisa.
     const games = ownedGamesRelations.map((relation) => ({
       ...relation.game, // Pega todos os dados do jogo (id, name, coverUrl, etc.)
       playtimeMinutes: relation.playtimeMinutes, // Adiciona o tempo de jogo
