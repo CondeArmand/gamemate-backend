@@ -30,7 +30,6 @@ export class UsersController {
   ) {
     const userId = user.uid;
     const { gameId } = addGameDto;
-    console.log(gameId);
     return this.usersService.addGameToLibrary(userId, gameId);
   }
 

@@ -1,7 +1,7 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { UserRepository } from 'src/repositories/user.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
@@ -19,19 +19,28 @@ export class UsersService {
   ) {}
 
   async getUserProfile(userId: string) {
-    return await this.userRepository.findById(userId);
+    const user = await this.userRepository.findById(userId);
+    const { totalGames, totalPlaytimeMinutes, ...userProfile } = user;
+
+    const profileStats = {
+      totalGames: totalGames,
+      totalHoursPlayed: parseFloat((totalPlaytimeMinutes / 60).toFixed(1)),
+    };
+
+    return {
+      ...userProfile,
+      profileStats,
+    };
   }
 
   async findUserOwnedGames(userId: string) {
     const ownedGamesRelations =
       await this.userOwnedGameRepository.findGamesByUserId(userId);
 
-    const games = ownedGamesRelations.map((relation) => ({
+    return ownedGamesRelations.map((relation) => ({
       ...relation.game, // Pega todos os dados do jogo (id, name, coverUrl, etc.)
       playtimeMinutes: relation.playtimeMinutes, // Adiciona o tempo de jogo
     }));
-
-    return games;
   }
 
   async unlinkStoreAccount(userId: string, provider: Provider) {
@@ -66,11 +75,8 @@ export class UsersService {
   }
 
   async addGameToLibrary(userId: string, gameId: string) {
-    // Passo 1: Verificar se o jogo existe no nosso banco de dados.
-    // Isso previne que tentemos adicionar uma relação para um jogo inexistente.
-    await this.gameRepository.findById(gameId); // Reutiliza o método que já lança NotFoundException
+    await this.gameRepository.findById(gameId);
 
-    // Passo 2: Verificar se o usuário já não possui este jogo.
     const existingOwnership =
       await this.userOwnedGameRepository.findByUserIdAndGameId(userId, gameId);
 
@@ -78,14 +84,23 @@ export class UsersService {
       throw new ConflictException('Este jogo já está na sua biblioteca.');
     }
 
-    // Passo 3: Criar o novo registro de posse.
-    return this.prisma.userOwnedGame.create({
-      data: {
-        userId,
-        gameId,
-        playtimeMinutes: 0, // Jogos adicionados manualmente começam com 0 minutos.
-        sourceProvider: Provider.GAMEMATE, // Marca a origem como manual.
-      },
-    });
+    return this.prisma.$transaction([
+      this.prisma.userOwnedGame.create({
+        data: {
+          userId,
+          gameId,
+          playtimeMinutes: 0,
+          sourceProvider: Provider.GAMEMATE,
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          totalGames: {
+            increment: 1,
+          },
+        },
+      }),
+    ]);
   }
 }

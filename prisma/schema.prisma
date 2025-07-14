@@ -22,6 +22,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  totalGames           Int @default(0)
+  totalPlaytimeMinutes Int @default(0)
+
   linkedAccounts LinkedAccount[]
   ownedGames     UserOwnedGame[]
 }
@@ -37,10 +40,11 @@ model Game {
   releaseDate DateTime?
   rating      Float?
 
-  genres     String[] @default([]) // Array de gêneros do jogo (ex: ["Ação", "Aventura"])
-  developers String[] @default([]) // Array de desenvolvedores do jogo (ex: ["Valve", "CD Projekt Red"])
-  publishers String[] @default([]) // Array de publicadoras do jogo (ex: ["Valve", "CD Projekt"])
-  platforms  String[] @default([]) // Array de plataformas do jogo (ex: ["PC", "PS4", "Xbox One"])
+  genres      String[] @default([])
+  platforms   String[] @default([])
+  developers  String[] @default([])
+  publishers  String[] @default([])
+  screenshots String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
