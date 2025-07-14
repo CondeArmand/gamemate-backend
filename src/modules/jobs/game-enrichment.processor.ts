@@ -154,7 +154,7 @@ export class GameEnrichmentProcessor {
 
       if (igdbGame) {
         const formattedIgdb = this.gamesService.formatIgdbGameData(igdbGame);
-        baseData.igdbId = formattedIgdb.igdbId;
+        baseData.igdbId = formattedIgdb.id;
         baseData.rating = formattedIgdb.rating;
         baseData.developers ??= formattedIgdb.developers;
         baseData.publishers ??= formattedIgdb.publishers;

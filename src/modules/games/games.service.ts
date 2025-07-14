@@ -364,10 +364,10 @@ export class GamesService {
     );
 
     return {
-      igdbId: game.id.toString(),
+      id: game.id.toString(),
       name: game.name,
       summary: game.summary,
-      coverUrl: game.cover?.url.replace('t_thumb', 't_cover_big_2x'),
+      cover: game.cover?.url.replace('t_thumb', 't_cover_big_2x'),
       rating: game.total_rating,
       releaseDate: game.first_release_date
         ? new Date(game.first_release_date * 1000)

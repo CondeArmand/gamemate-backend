@@ -37,7 +37,7 @@ export interface IGDBGame {
   name: string;
   summary: string;
   cover: IGDBImage;
-  first_release_date: number; // Unix timestamp
+  first_release_date: number;
   total_rating: number;
   genres: IGDBGenre[];
   platforms: IGDBPlatform[];
