@@ -1,14 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserOwnedGame, Game, Provider } from '@prisma/client';
+import {
+  UserOwnedGame,
+  Game,
+  Provider,
+  GameStatus,
+  Prisma,
+} from '@prisma/client';
 @Injectable()
 export class UserOwnedGameRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Cria ou atualiza a relação entre um usuário e um jogo,
-   * incluindo o tempo de jogo.
-   */
   async upsert(
     userId: string,
     gameId: string,
@@ -35,13 +37,43 @@ export class UserOwnedGameRepository {
     return this.prisma.userOwnedGame.findMany({
       where: { userId },
       include: {
-        // Inclui os dados completos do jogo relacionado em cada resultado
         game: true,
       },
       orderBy: {
-        // Opcional: ordena os jogos por tempo de jogo, por exemplo
         playtimeMinutes: 'desc',
       },
     });
+  }
+
+  async findByUserIdAndGameId(
+    userId: string,
+    gameId: string,
+  ): Promise<UserOwnedGame | null> {
+    return this.prisma.userOwnedGame.findUnique({
+      where: { userId_gameId: { userId, gameId } },
+    });
+  }
+
+  async updateStatus(
+    userId: string,
+    gameId: string,
+    status: GameStatus,
+  ): Promise<UserOwnedGame> {
+    try {
+      return await this.prisma.userOwnedGame.update({
+        where: { userId_gameId: { userId, gameId } },
+        data: { status },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(
+          `O usuário não possui o jogo com o ID especificado.`,
+        );
+      }
+      throw error;
+    }
   }
 }

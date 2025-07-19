@@ -22,6 +22,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  totalGames           Int @default(0)
+  totalPlaytimeMinutes Int @default(0)
+
   linkedAccounts LinkedAccount[]
   ownedGames     UserOwnedGame[]
 }
@@ -37,15 +40,15 @@ model Game {
   releaseDate DateTime?
   rating      Float?
 
-  genres     String[] @default([]) // Array de gêneros do jogo (ex: ["Ação", "Aventura"])
-  developers String[] @default([]) // Array de desenvolvedores do jogo (ex: ["Valve", "CD Projekt Red"])
-  publishers String[] @default([]) // Array de publicadoras do jogo (ex: ["Valve", "CD Projekt"])
-  platforms  String[] @default([]) // Array de plataformas do jogo (ex: ["PC", "PS4", "Xbox One"])
+  genres      String[] @default([])
+  platforms   String[] @default([])
+  developers  String[] @default([])
+  publishers  String[] @default([])
+  screenshots String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relação
   owners UserOwnedGame[] // Ligações com os usuários que possuem este jogo
 }
 
@@ -53,8 +56,8 @@ model Game {
 
 model LinkedAccount {
   id                String   @id @default(cuid())
-  provider          Provider // STEAM, GOG, etc.
-  providerAccountId String // ID do usuário naquela plataforma (ex: SteamID64)
+  provider          Provider
+  providerAccountId String
   username          String?
 
   userId String
@@ -63,10 +66,9 @@ model LinkedAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, provider]) // Um usuário só pode ter uma conta por loja
+  @@unique([userId, provider])
 }
 
-// Tabela de Junção para a relação Muitos-para-Muitos entre User e Game
 model UserOwnedGame {
   userId String
   gameId String
@@ -74,18 +76,28 @@ model UserOwnedGame {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
-  playtimeMinutes Int? // Tempo de jogo em minutos (específico da Steam, por exemplo)
-  lastPlayedAt    DateTime? // Última vez que jogou (específico da Steam, por exemplo)
-  sourceProvider  Provider // Fonte do jogo (Steam, GOG, etc.)
+  playtimeMinutes Int?
+  lastPlayedAt    DateTime?
+  sourceProvider  Provider
+
+  status GameStatus @default(NUNCA_JOGADO)
 
   addedAt DateTime @default(now())
 
-  @@id([userId, gameId]) // Chave primária composta
+  @@id([userId, gameId])
 }
 
-// Enum para os provedores de contas/lojas
 enum Provider {
   STEAM
   GOG
   GAMEMATE
+}
+
+enum GameStatus {
+  ZERADO
+  JOGANDO
+  NUNCA_JOGADO
+  DROPADO
+  PLATINADO
+  PROXIMO
 }

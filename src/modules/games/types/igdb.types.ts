@@ -20,14 +20,27 @@ export interface IGDBPlatform {
   abbreviation: string;
 }
 
+export interface IGDBCompany {
+  id: number;
+  name: string;
+}
+
+export interface IGDBInvolvedCompany {
+  id: number;
+  company: IGDBCompany;
+  developer: boolean;
+  publisher: boolean;
+}
+
 export interface IGDBGame {
   id: number;
   name: string;
   summary: string;
   cover: IGDBImage;
-  first_release_date: number; // Unix timestamp
+  first_release_date: number;
   total_rating: number;
   genres: IGDBGenre[];
   platforms: IGDBPlatform[];
   screenshots: IGDBImage[];
+  involved_companies: IGDBInvolvedCompany[];
 }

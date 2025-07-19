@@ -1,13 +1,18 @@
 import { HttpService } from '@nestjs/axios';
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config'; // Usaremos ConfigService para as variáveis de ambiente
 import { firstValueFrom } from 'rxjs';
-import { TwitchToken, IGDBGame } from './types/igdb.types';
+import { TwitchToken, IGDBGame, IGDBInvolvedCompany } from './types/igdb.types';
 import stringSimilarity from 'string-similarity';
+import { GameRepository } from '../../repositories/game.repository';
+import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
+import { Game, Prisma } from '@prisma/client';
 
 @Injectable()
 export class GamesService {
@@ -18,6 +23,8 @@ export class GamesService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly gameRepository: GameRepository,
+    private readonly userOwnedGameRepository: UserOwnedGameRepository,
   ) {}
 
   private async getAccessToken(): Promise<string> {
@@ -51,19 +58,19 @@ export class GamesService {
    * Busca jogos na API da IGDB.
    * @param searchTerm Termo de busca para os jogos.
    */
-  async searchGamesByName(searchTerm: string): Promise<IGDBGame[]> {
+  async searchGamesByName(searchTerm: string): Promise<any[]> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
     const query = `
-         fields 
+      fields 
         name, summary, cover.url, first_release_date, total_rating, 
         genres.name, platforms.name, screenshots.url, 
         involved_companies.company.name, involved_companies.developer, involved_companies.publisher;
-         search "${searchTerm}";
-         where cover.url != null & total_rating != null & summary != null & screenshots.url != null;
-         limit 20;
-       `;
+      search "${searchTerm}";
+      where cover.url != null & summary != null;
+      limit 20;
+    `;
 
     try {
       const response = await firstValueFrom(
@@ -88,7 +95,7 @@ export class GamesService {
         return [];
       }
 
-      return response.data.map((game) => this.formatGameData(game));
+      return response.data.map((game) => this.formatIgdbGameData(game));
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos para o termo "${searchTerm}"`,
@@ -104,9 +111,6 @@ export class GamesService {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
-    // Query APICalypse para buscar jogos de destaque.
-    // Condições: Lançado nos últimos 6 meses, nota > 80, mais de 50 avaliações, com capa e screenshots.
-    // Ordenado pela maior nota.
     const sixMonthsAgoTimestamp = Math.floor(
       Date.now() / 1000 - 60 * 60 * 24 * 180,
     );
@@ -140,7 +144,7 @@ export class GamesService {
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos de destaque`,
-        error.response?.data || error.message,
+        error.response?.data ?? error.message,
       );
       throw new InternalServerErrorException(
         'Falha ao buscar dados dos jogos de destaque.',
@@ -152,8 +156,6 @@ export class GamesService {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
-    // Query APICalypse para buscar por um website da categoria 'steam' (id 13)
-    // que corresponda ao appid.
     const query = `
       fields name, summary, cover.url, first_release_date, total_rating, genres.name, platforms.name, screenshots.url, involved_companies.company.name, involved_companies.developer, involved_companies.publisher;
       where websites.category = 13 & websites.url ~ *"/app/${steamAppId}";
@@ -188,18 +190,12 @@ export class GamesService {
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogo por Steam AppID "${steamAppId}"`,
-        error.response?.data || error.message,
+        error.response?.data ?? error.message,
       );
       return null; // Retorna null em caso de erro para a cascata continuar
     }
   }
 
-  /**
-   * Encapsula a lógica de "fuzzy matching" para encontrar a melhor correspondência de jogo
-   * a partir de uma lista de resultados da IGDB.
-   * @param gameName O nome do jogo vindo da Steam.
-   * @returns O objeto do jogo com a melhor correspondência se a pontuação for boa, caso contrário null.
-   */
   async findBestMatchByName(gameName: string): Promise<IGDBGame | null> {
     // Primeiro, fazemos a busca geral pelo nome
     const searchResults = await this.searchGamesByName(gameName);
@@ -231,23 +227,15 @@ export class GamesService {
     return null;
   }
 
-  /**
-   * Busca os detalhes de um jogo na IGDB usando o seu ID único da IGDB.
-   * Útil para re-carregar dados ou para fallbacks.
-   * @param igdbId O ID do jogo na plataforma IGDB.
-   * @returns O objeto do jogo da IGDB se encontrado, caso contrário null.
-   */
   async findGameByIgdbId(igdbId: string): Promise<IGDBGame | null> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
-    // Query APICalypse para buscar por um ID específico.
-    // Pedimos todos os campos ricos que definimos no nosso tipo IGDBGame.
     const query = `
       fields name, summary, cover.url, first_release_date, total_rating, 
-             genres.name, platforms.name, screenshots.url, 
-             involved_companies.company.name, involved_companies.developer, 
-             involved_companies.publisher;
+      genres.name, platforms.name, screenshots.url, 
+      involved_companies.company.name, involved_companies.developer, 
+      involved_companies.publisher;
       where id = ${igdbId};
       limit 1;
     `;
@@ -277,11 +265,135 @@ export class GamesService {
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogo por IGDB ID "${igdbId}"`,
-        error.response?.data || error.message,
+        error.response?.data ?? error.message,
       );
       // Retorna null em caso de erro para que o fluxo do worker possa continuar.
       return null;
     }
+  }
+
+  async resolveGame(query: {
+    igdbId?: string;
+    steamAppId?: string;
+  }): Promise<{ id: string }> {
+    const { igdbId, steamAppId } = query;
+
+    if (igdbId) {
+      let game = await this.gameRepository.findByIgdbId(igdbId);
+      if (game) {
+        return { id: game.id };
+      }
+
+      game = await this.enrichAndCreateFromIgdb(igdbId);
+
+      if (!game) {
+        throw new NotFoundException(
+          `Jogo com IGDB ID ${igdbId} não encontrado na fonte externa.`,
+        );
+      }
+      return { id: game.id };
+    } else if (steamAppId) {
+      const game = await this.gameRepository.findBySteamId(steamAppId);
+      if (!game) {
+        throw new NotFoundException(
+          `Jogo com Steam AppID ${steamAppId} não encontrado em nosso banco.`,
+        );
+      }
+      return { id: game.id };
+    }
+
+    throw new BadRequestException(
+      'É necessário fornecer um igdbId ou steamAppId.',
+    );
+  }
+
+  async findGameDetails(gameId: string, userId?: string) {
+    const game = await this.gameRepository.findById(gameId);
+
+    const response: any = { ...game };
+    response.isOwned = false;
+
+    if (userId) {
+      const userOwnedGame =
+        await this.userOwnedGameRepository.findByUserIdAndGameId(
+          userId,
+          gameId,
+        );
+
+      if (userOwnedGame) {
+        response.isOwned = true;
+        response.playtimeMinutes = userOwnedGame.playtimeMinutes;
+      }
+    }
+
+    return response;
+  }
+
+  private async enrichAndCreateFromIgdb(igdbId: string): Promise<Game | null> {
+    this.logger.log(
+      `[Resolve] Jogo com IGDB ID ${igdbId} não encontrado localmente. Buscando na IGDB...`,
+    );
+    const igdbGame = await this.findGameByIgdbId(igdbId); // Método que já tínhamos
+    if (!igdbGame) return null;
+
+    // Lógica de enriquecimento simplificada
+    const gameData: Prisma.GameCreateInput = {
+      igdbId: igdbGame.id.toString(),
+      name: igdbGame.name,
+      summary: igdbGame.summary,
+      rating: igdbGame.total_rating,
+      releaseDate: igdbGame.first_release_date
+        ? new Date(igdbGame.first_release_date * 1000)
+        : null,
+      genres: igdbGame.genres?.map((g) => g.name) || [],
+      platforms: igdbGame.platforms?.map((p) => p.name) || [],
+      // Tenta buscar a capa
+      coverUrl: igdbGame.cover?.url?.replace('t_thumb', 't_cover_big') || null,
+    };
+
+    // Salva no banco usando o smartUpsert para evitar duplicatas
+    return this.gameRepository.smartUpsert(gameData);
+  }
+
+  public formatIgdbGameData(game: IGDBGame) {
+    const { developers, publishers } = this.parseInvolvedCompanies(
+      game.involved_companies,
+    );
+
+    return {
+      id: game.id.toString(),
+      name: game.name,
+      summary: game.summary,
+      cover: game.cover?.url.replace('t_thumb', 't_cover_big_2x'),
+      rating: game.total_rating,
+      releaseDate: game.first_release_date
+        ? new Date(game.first_release_date * 1000)
+        : null,
+      genres: game.genres?.map((g) => g.name) || [],
+      platforms: game.platforms?.map((p) => p.name) || [],
+      screenshots:
+        game.screenshots?.map((s) =>
+          s.url.replace('t_thumb', 't_screenshot_huge'),
+        ) || [],
+      developers,
+      publishers,
+    };
+  }
+
+  private parseInvolvedCompanies(companies: IGDBInvolvedCompany[]): {
+    developers: string[];
+    publishers: string[];
+  } {
+    if (!companies) {
+      return { developers: [], publishers: [] };
+    }
+    const developers = companies
+      .filter((c) => c.developer)
+      .map((c) => c.company.name);
+    const publishers = companies
+      .filter((c) => c.publisher)
+      .map((c) => c.company.name);
+    return { developers, publishers };
   }
 
   private formatGameData(game: IGDBGame): IGDBGame {

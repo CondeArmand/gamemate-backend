@@ -2,6 +2,7 @@ import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bull';
 import { SteamService } from '../steam/steam.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Processor('game-sync')
 export class SteamSyncProcessor {
@@ -9,6 +10,7 @@ export class SteamSyncProcessor {
 
   constructor(
     private readonly steamService: SteamService,
+    private readonly prisma: PrismaService,
     @InjectQueue('game-enrichment') private readonly enrichmentQueue: Queue,
   ) {}
 
@@ -41,6 +43,28 @@ export class SteamSyncProcessor {
     }
     this.logger.log(
       `Orquestrador: ${steamLibrary.games.length} jobs de enriquecimento disparados.`,
+    );
+
+    this.logger.log(
+      `Orquestrador: Recalculando e atualizando estatísticas para o usuário ${userId}...`,
+    );
+
+    const totalGames = steamLibrary.game_count;
+    const totalPlaytimeMinutes = steamLibrary.games.reduce(
+      (total, game) => total + game.playtime_forever,
+      0,
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalGames,
+        totalPlaytimeMinutes,
+      },
+    });
+
+    this.logger.log(
+      `Orquestrador: Estatísticas do usuário ${userId} atualizadas com sucesso.`,
     );
   }
 }

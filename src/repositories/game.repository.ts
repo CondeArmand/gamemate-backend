@@ -8,9 +8,29 @@ export class GameRepository {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  async findById(id: string): Promise<Game | null> {
+    const game = await this.prisma.game.findUnique({
+      where: { id },
+    });
+
+    if (!game) {
+      this.logger.warn(`Jogo não encontrado com ID: ${id}`);
+    } else {
+      this.logger.debug(`Jogo encontrado: ${game.name} (ID: ${id})`);
+    }
+
+    return game;
+  }
+
   async findBySteamId(steamAppId: string): Promise<Game | null> {
     return this.prisma.game.findUnique({
       where: { steamAppId },
+    });
+  }
+
+  async findByIgdbId(igdbId: string): Promise<Game | null> {
+    return this.prisma.game.findUnique({
+      where: { igdbId },
     });
   }
 
