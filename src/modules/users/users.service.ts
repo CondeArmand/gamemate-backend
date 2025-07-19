@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { UserRepository } from 'src/repositories/user.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
-import { Provider } from '@prisma/client';
+import { GameStatus, Provider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GameRepository } from '../../repositories/game.repository';
 import { AddGameDto } from './dto/add-game.dto';
@@ -125,5 +125,20 @@ export class UsersService {
         },
       }),
     ]);
+  }
+
+  async updateUserGameStatus(
+    userId: string,
+    gameId: string,
+    status: GameStatus,
+  ) {
+    const existingOwnership =
+      await this.userOwnedGameRepository.findByUserIdAndGameId(userId, gameId);
+
+    if (!existingOwnership) {
+      throw new NotFoundException('Este jogo não está na sua biblioteca.');
+    }
+
+    return this.userOwnedGameRepository.updateStatus(userId, gameId, status);
   }
 }

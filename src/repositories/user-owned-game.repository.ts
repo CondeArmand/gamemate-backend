@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserOwnedGame, Game, Provider } from '@prisma/client';
+import {
+  UserOwnedGame,
+  Game,
+  Provider,
+  GameStatus,
+  Prisma,
+} from '@prisma/client';
 @Injectable()
 export class UserOwnedGameRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -46,5 +52,28 @@ export class UserOwnedGameRepository {
     return this.prisma.userOwnedGame.findUnique({
       where: { userId_gameId: { userId, gameId } },
     });
+  }
+
+  async updateStatus(
+    userId: string,
+    gameId: string,
+    status: GameStatus,
+  ): Promise<UserOwnedGame> {
+    try {
+      return await this.prisma.userOwnedGame.update({
+        where: { userId_gameId: { userId, gameId } },
+        data: { status },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(
+          `O usuário não possui o jogo com o ID especificado.`,
+        );
+      }
+      throw error;
+    }
   }
 }

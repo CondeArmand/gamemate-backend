@@ -6,15 +6,16 @@ import {
   HttpCode,
   Param,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { FirebaseAuthGuard } from 'src/modules/auth/guards/firebase-auth.guard';
 import {
-  CurrentUser,
   AuthenticatedUser,
+  CurrentUser,
 } from '../auth/decorators/current-user.decorator';
-import { Provider } from '@prisma/client';
+import { GameStatus, Provider } from '@prisma/client';
 import { AddGameDto } from './dto/add-game.dto';
 
 @Controller('users')
@@ -23,12 +24,24 @@ export class UsersController {
 
   @Post('me/games')
   @UseGuards(FirebaseAuthGuard)
-  @HttpCode(201) // Retorna "201 Created" em caso de sucesso.
+  @HttpCode(201)
   addGame(
     @CurrentUser() user: AuthenticatedUser,
     @Body() addGameDto: AddGameDto,
   ) {
     return this.usersService.addGameToLibrary(user.uid, addGameDto);
+  }
+
+  @Put('me/games/:gameId/status')
+  @UseGuards(FirebaseAuthGuard)
+  @HttpCode(204)
+  async updateGameStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('gameId') gameId: string,
+    @Body('status') status: GameStatus,
+  ) {
+    const userId = user.uid;
+    await this.usersService.updateUserGameStatus(userId, gameId, status);
   }
 
   @Delete('me/games')

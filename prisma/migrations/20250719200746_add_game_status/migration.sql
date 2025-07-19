@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "GameStatus" AS ENUM ('ZERADO', 'JOGANDO', 'NUNCA_JOGADO', 'DROPADO', 'PLATINADO', 'PROXIMO');
+
+-- AlterTable
+ALTER TABLE "UserOwnedGame" ADD COLUMN     "status" "GameStatus" NOT NULL DEFAULT 'NUNCA_JOGADO';
