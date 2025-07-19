@@ -111,9 +111,6 @@ export class GamesService {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
 
-    // Query APICalypse para buscar jogos de destaque.
-    // Condições: Lançado nos últimos 6 meses, nota > 80, mais de 50 avaliações, com capa e screenshots.
-    // Ordenado pela maior nota.
     const sixMonthsAgoTimestamp = Math.floor(
       Date.now() / 1000 - 60 * 60 * 24 * 180,
     );

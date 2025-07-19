@@ -8,6 +8,7 @@ import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repo
 import { Provider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GameRepository } from '../../repositories/game.repository';
+import { AddGameDto } from './dto/add-game.dto';
 
 @Injectable()
 export class UsersService {
@@ -44,8 +45,6 @@ export class UsersService {
   }
 
   async unlinkStoreAccount(userId: string, provider: Provider) {
-    // Usamos uma transação para garantir que ambas as operações (deletar jogos e deletar conta)
-    // sejam bem-sucedidas, ou nenhuma delas é executada.
     return this.prisma.$transaction(async (tx) => {
       // Passo A: Encontrar o ID da conta vinculada para ter certeza de que ela existe
       const linkedAccount = await tx.linkedAccount.findUnique({
@@ -74,7 +73,8 @@ export class UsersService {
     });
   }
 
-  async addGameToLibrary(userId: string, gameId: string) {
+  async addGameToLibrary(userId: string, addGameDto: AddGameDto) {
+    const { gameId, sourceProvider } = addGameDto;
     await this.gameRepository.findById(gameId);
 
     const existingOwnership =
@@ -90,7 +90,7 @@ export class UsersService {
           userId,
           gameId,
           playtimeMinutes: 0,
-          sourceProvider: Provider.GAMEMATE,
+          sourceProvider: sourceProvider,
         },
       }),
       this.prisma.user.update({
@@ -98,6 +98,29 @@ export class UsersService {
         data: {
           totalGames: {
             increment: 1,
+          },
+        },
+      }),
+    ]);
+  }
+
+  async removeGameFromLibrary(userId: string, gameId: string) {
+    const existingOwnership =
+      await this.userOwnedGameRepository.findByUserIdAndGameId(userId, gameId);
+
+    if (!existingOwnership) {
+      throw new NotFoundException('Este jogo não está na sua biblioteca.');
+    }
+
+    return this.prisma.$transaction([
+      this.prisma.userOwnedGame.delete({
+        where: { userId_gameId: { userId, gameId } },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          totalGames: {
+            decrement: 1,
           },
         },
       }),

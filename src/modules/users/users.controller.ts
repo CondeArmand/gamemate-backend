@@ -28,9 +28,18 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() addGameDto: AddGameDto,
   ) {
+    return this.usersService.addGameToLibrary(user.uid, addGameDto);
+  }
+
+  @Delete('me/games')
+  @UseGuards(FirebaseAuthGuard)
+  @HttpCode(204)
+  async removeGame(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('gameId') gameId: string,
+  ) {
     const userId = user.uid;
-    const { gameId } = addGameDto;
-    return this.usersService.addGameToLibrary(userId, gameId);
+    await this.usersService.removeGameFromLibrary(userId, gameId);
   }
 
   @Get('me')
