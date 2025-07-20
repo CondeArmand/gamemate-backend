@@ -22,7 +22,7 @@ export class GamesController {
 
   @Get('search')
   search(@Query('q') searchTerm: string) {
-    return this.gamesService.searchGamesByName(searchTerm);
+    return this.gamesService.searchGames(searchTerm);
   }
 
   @Get('featured')

@@ -4,7 +4,6 @@ import { FirebaseService } from '../../../firebase/firebase.service';
 @Injectable()
 export class FirebaseRollbackHelper {
   private readonly logger = new Logger(FirebaseRollbackHelper.name);
-
   constructor(private readonly firebaseAdmin: FirebaseService) {}
 
   /**
@@ -23,8 +22,6 @@ export class FirebaseRollbackHelper {
         `CRÍTICO: Falha no rollback do Firebase para UID ${uid}. Este usuário precisa ser investigado.`,
         firebaseDeleteError.stack,
       );
-      // Aqui, não relançamos o erro para não mascarar o erro original que causou o rollback,
-      // mas garantimos que a falha crítica no rollback seja logada com destaque.
     }
   }
 }

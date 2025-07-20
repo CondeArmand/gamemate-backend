@@ -9,6 +9,11 @@ import { GameStatus, Provider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GameRepository } from '../../repositories/game.repository';
 import { AddGameDto } from './dto/add-game.dto';
+import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { FirebaseRollbackHelper } from '../auth/helpers/firebase-rollback.helper';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { GetOwnedGamesDto } from './dto/get-owned-games.dto';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +22,8 @@ export class UsersService {
     private readonly userOwnedGameRepository: UserOwnedGameRepository,
     private readonly gameRepository: GameRepository,
     private readonly prisma: PrismaService,
+    private readonly firebaseRollbackHelper: FirebaseRollbackHelper,
+    @InjectQueue('game-sync') private readonly gameSyncQueue: Queue,
   ) {}
 
   async getUserProfile(userId: string) {
@@ -34,14 +41,47 @@ export class UsersService {
     };
   }
 
-  async findUserOwnedGames(userId: string) {
-    const ownedGamesRelations =
-      await this.userOwnedGameRepository.findGamesByUserId(userId);
+  async updateUserProfile(userId: string, data: UpdateUserProfileDto) {
+    return this.userRepository.update(userId, data);
+  }
 
-    return ownedGamesRelations.map((relation) => ({
-      ...relation.game, // Pega todos os dados do jogo (id, name, coverUrl, etc.)
-      playtimeMinutes: relation.playtimeMinutes, // Adiciona o tempo de jogo
+  async deleteUserProfile(userId: string) {
+    await this.firebaseRollbackHelper.rollbackFirebaseUser(userId);
+
+    const deletedUser = await this.userRepository.delete(userId);
+
+    if (!deletedUser) {
+      throw new NotFoundException(`Usuário com ID "${userId}" não encontrado.`);
+    }
+
+    return { message: `Usuário com ID "${userId}" deletado com sucesso.` };
+  }
+
+  async findUserOwnedGames(userId: string, query: GetOwnedGamesDto) {
+    const { skip = 0, take = 20 } = query;
+    const queryWithDefaults = { ...query, skip, take };
+
+    const { total, games: ownedGamesRelations } =
+      await this.userOwnedGameRepository.findAndCountGamesByUserId(
+        userId,
+        queryWithDefaults,
+      );
+
+    const formattedSkip = parseInt(skip.toString(), 10);
+    const formattedTake = parseInt(take.toString(), 10);
+
+    const games = ownedGamesRelations.map((relation) => ({
+      ...relation.game,
+      playtimeMinutes: relation.playtimeMinutes,
+      status: relation.status,
+      sourceProvider: relation.sourceProvider,
     }));
+
+    return {
+      data: games,
+      total,
+      hasNextPage: formattedSkip + formattedTake < total,
+    };
   }
 
   async unlinkStoreAccount(userId: string, provider: Provider) {
@@ -58,15 +98,10 @@ export class UsersService {
         );
       }
 
-      // Passo B: Deletar todos os registros de jogos possuídos vindos desta conta/loja
-      // (Esta parte precisaria de mais lógica se um jogo pudesse ser possuído em múltiplas lojas.
-      // Por agora, vamos assumir que deletamos a ligação user-game).
       await tx.userOwnedGame.deleteMany({
-        where: { userId: userId, sourceProvider: provider }, // Simplificação: deleta todos os jogos do usuário.
-        // Uma lógica mais avançada poderia ter um 'sourceProvider' na tabela UserOwnedGame.
+        where: { userId: userId, sourceProvider: provider },
       });
 
-      // Passo C: Deletar a conta vinculada em si
       await tx.linkedAccount.delete({
         where: { userId_provider: { userId, provider } },
       });
@@ -140,5 +175,20 @@ export class UsersService {
     }
 
     return this.userOwnedGameRepository.updateStatus(userId, gameId, status);
+  }
+
+  async resyncSteamGames(userId: string) {
+    const linkedAccount = await this.prisma.linkedAccount.findUnique({
+      where: { userId_provider: { userId, provider: Provider.STEAM } },
+    });
+
+    if (!linkedAccount) {
+      throw new NotFoundException('Conta Steam não vinculada.');
+    }
+
+    await this.gameSyncQueue.add('sync-steam-games', {
+      userId: userId,
+      steamId: linkedAccount.providerAccountId,
+    });
   }
 }

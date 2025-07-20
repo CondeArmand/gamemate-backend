@@ -33,7 +33,7 @@ export interface IGDBInvolvedCompany {
 }
 
 export interface IGDBGame {
-  id: number;
+  id: string;
   name: string;
   summary: string;
   cover: IGDBImage;

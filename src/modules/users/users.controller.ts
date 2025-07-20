@@ -5,8 +5,10 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -17,6 +19,8 @@ import {
 } from '../auth/decorators/current-user.decorator';
 import { GameStatus, Provider } from '@prisma/client';
 import { AddGameDto } from './dto/add-game.dto';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { GetOwnedGamesDto } from './dto/get-owned-games.dto';
 
 @Controller('users')
 export class UsersController {
@@ -62,11 +66,37 @@ export class UsersController {
     return this.usersService.getUserProfile(userId);
   }
 
+  @Patch('me')
+  @UseGuards(FirebaseAuthGuard)
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() updateUserProfileDto: UpdateUserProfileDto,
+  ) {
+    const userId = user.uid;
+    return this.usersService.updateUserProfile(userId, updateUserProfileDto);
+  }
+
+  @Delete('me')
+  @UseGuards(FirebaseAuthGuard)
+  @HttpCode(204)
+  async deleteProfile(@CurrentUser() user: AuthenticatedUser) {
+    await this.usersService.deleteUserProfile(user.uid);
+  }
+
   @Get('me/games')
   @UseGuards(FirebaseAuthGuard)
-  getOwnedGames(@CurrentUser() user: AuthenticatedUser) {
-    const userId = user.uid;
-    return this.usersService.findUserOwnedGames(userId);
+  getOwnedGames(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: GetOwnedGamesDto,
+  ) {
+    return this.usersService.findUserOwnedGames(user.uid, query);
+  }
+
+  @Post('me/linked-accounts/steam/sync')
+  @UseGuards(FirebaseAuthGuard)
+  @HttpCode(202)
+  async resyncSteamAccount(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.resyncSteamGames(user.uid);
   }
 
   @Delete('me/linked-accounts/:provider')

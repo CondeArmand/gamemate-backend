@@ -8,11 +8,18 @@ export interface SteamGameDetails {
   about_the_game: string;
   short_description: string;
   header_image: string;
+  platforms: SteamPlatformResponse;
   developers: string[];
   publishers: string[];
   genres: { id: string; description: string }[];
   screenshots: { id: number; path_thumbnail: string; path_full: string }[];
   release_date: { coming_soon: boolean; date: string };
+}
+
+export interface SteamPlatformResponse {
+  windows: boolean;
+  mac: boolean;
+  linux: boolean;
 }
 
 export interface SteamAppDetailsResponse {

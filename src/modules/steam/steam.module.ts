@@ -5,11 +5,11 @@ import { SteamService } from './steam.service';
 @Module({
   imports: [
     HttpModule.register({
-      timeout: 5000, // Timeout de 5 segundos para as requisições
+      timeout: 30000, // 30 segundos
       maxRedirects: 5,
     }),
   ],
   providers: [SteamService],
-  exports: [SteamService], // Exporta o serviço para que o nosso worker possa usá-lo
+  exports: [SteamService],
 })
 export class SteamModule {}
