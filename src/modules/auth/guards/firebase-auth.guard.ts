@@ -16,7 +16,7 @@ export class FirebaseAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = this.extractToken(request); // <-- Usa um método unificado
+    const token = this.extractToken(request);
 
     if (!token) {
       throw new UnauthorizedException('Token de autenticação não fornecido.');
@@ -32,13 +32,11 @@ export class FirebaseAuthGuard implements CanActivate {
   }
 
   protected extractToken(request: any): string | undefined {
-    // 1. Tenta pegar do cabeçalho Authorization (padrão)
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.split(' ')[0] === 'Bearer') {
       return authHeader.split(' ')[1];
     }
 
-    // 2. Se não encontrar, tenta pegar do query parameter 'token'
     if (request.query && request.query.token) {
       return request.query.token;
     }
