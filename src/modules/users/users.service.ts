@@ -98,12 +98,21 @@ export class UsersService {
         );
       }
 
-      await tx.userOwnedGame.deleteMany({
+      const deletedGames = await tx.userOwnedGame.deleteMany({
         where: { userId: userId, sourceProvider: provider },
       });
 
       await tx.linkedAccount.delete({
         where: { userId_provider: { userId, provider } },
+      });
+
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          totalGames: {
+            decrement: deletedGames.count,
+          },
+        },
       });
     });
   }
