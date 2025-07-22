@@ -30,8 +30,6 @@ export class UsersService {
     const user = await this.userRepository.findById(userId);
     const { totalGames, totalPlaytimeMinutes, ...userProfile } = user;
 
-    console.log(user);
-
     const profileStats = {
       totalGames: totalGames,
       totalHoursPlayed: parseFloat((totalPlaytimeMinutes / 60).toFixed(1)),
