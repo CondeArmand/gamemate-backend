@@ -59,7 +59,6 @@ export class SteamService {
         `Falha ao buscar detalhes do jogo ${appid} na API da Steam`,
         error.stack,
       );
-      // Retorna null em caso de erro para que o worker possa continuar
       return null;
     }
   }

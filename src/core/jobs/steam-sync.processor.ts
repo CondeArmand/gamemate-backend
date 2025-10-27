@@ -1,7 +1,7 @@
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bull';
-import { SteamService } from '../steam/steam.service';
+import { SteamService } from '../../modules/steam/steam.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Processor('game-sync')

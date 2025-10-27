@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  UserOwnedGame,
   Game,
-  Provider,
   GameStatus,
   Prisma,
+  Provider,
+  UserOwnedGame,
 } from '@prisma/client';
+import { GetOwnedGamesDto } from '../modules/users/dto/get-owned-games.dto';
+
 @Injectable()
 export class UserOwnedGameRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -31,18 +33,46 @@ export class UserOwnedGameRepository {
     });
   }
 
-  async findGamesByUserId(
+  async findAndCountGamesByUserId(
     userId: string,
-  ): Promise<(UserOwnedGame & { game: Game })[]> {
-    return this.prisma.userOwnedGame.findMany({
-      where: { userId },
+    options: GetOwnedGamesDto,
+  ): Promise<{ total: number; games: (UserOwnedGame & { game: Game })[] }> {
+    const { status, provider, name, skip, take } = options;
+
+    const where: Prisma.UserOwnedGameWhereInput = {
+      userId,
+      ...(status && { status }),
+      ...(provider && { sourceProvider: provider }),
+      ...(name && {
+        game: {
+          name: {
+            contains: name,
+            mode: 'insensitive',
+          },
+        },
+      }),
+    };
+
+    const total = await this.prisma.userOwnedGame.count({ where });
+
+    const formattedSkip = skip ? parseInt(skip.toString(), 10) : 0;
+    const formattedTake = take ? parseInt(take.toString(), 10) : 20;
+
+    const games = await this.prisma.userOwnedGame.findMany({
+      where,
       include: {
         game: true,
       },
       orderBy: {
-        playtimeMinutes: 'desc',
+        game: {
+          name: 'asc',
+        },
       },
+      skip: formattedSkip,
+      take: formattedTake,
     });
+
+    return { total, games };
   }
 
   async findByUserIdAndGameId(

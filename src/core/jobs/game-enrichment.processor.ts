@@ -6,10 +6,10 @@ import { performance } from 'perf_hooks';
 import { Prisma, Provider } from '@prisma/client';
 import { GameRepository } from '../../repositories/game.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
-import { GamesService } from '../games/games.service';
-import { SteamGridDbService } from '../steamgriddb/steamgriddb.service';
-import { SteamService } from '../steam/steam.service';
-import { SteamGameDetails } from '../steam/types/steamTypes';
+import { GamesService } from '../../modules/games/games.service';
+import { SteamGridDbService } from '../../modules/steamgriddb/steamgriddb.service';
+import { SteamService } from '../../modules/steam/steam.service';
+import { SteamGameDetails } from '../../modules/steam/types/steamTypes';
 import { parseSteamDate } from './helpers/date-parser.helper';
 
 interface EnrichGameJobData {
@@ -118,13 +118,20 @@ export class GameEnrichmentProcessor {
       return this.consolidateFromSteam(steamDetails);
     }
 
-    // Fallback para IGDB se a Steam falhar.
     this.logger.warn(
       `Detalhes da Steam não encontrados para ${steamAppId}. Tentando IGDB por nome.`,
     );
-    const igdbGame = await this.gamesService.findBestMatchByName(steamGameName);
-    if (igdbGame) {
-      return { steamAppId, ...this.gamesService.formatIgdbGameData(igdbGame) };
+
+    const igdbGameRaw =
+      await this.gamesService.findBestMatchByName(steamGameName);
+
+    if (igdbGameRaw) {
+      const formattedIgdbGame =
+        this.gamesService.formatIgdbGameData(igdbGameRaw);
+      return {
+        steamAppId,
+        ...formattedIgdbGame,
+      };
     }
 
     return null;
@@ -136,10 +143,19 @@ export class GameEnrichmentProcessor {
   private async consolidateFromSteam(
     steamDetails: SteamGameDetails,
   ): Promise<EnrichedData> {
+    const platforms: string[] = [];
+    ['windows', 'mac', 'linux'].forEach((os) => {
+      if (steamDetails.platforms?.[os])
+        platforms.push(
+          os === 'mac' ? 'macOS' : os.charAt(0).toUpperCase() + os.slice(1),
+        );
+    });
+
     const baseData: EnrichedData = {
       steamAppId: steamDetails.steam_appid.toString(),
       name: steamDetails.name,
       summary: steamDetails.about_the_game,
+      platforms: platforms,
       developers: steamDetails.developers || [],
       publishers: steamDetails.publishers || [],
       genres: steamDetails.genres?.map((g) => g.description) || [],
@@ -156,6 +172,7 @@ export class GameEnrichmentProcessor {
         const formattedIgdb = this.gamesService.formatIgdbGameData(igdbGame);
         baseData.igdbId = formattedIgdb.id;
         baseData.rating = formattedIgdb.rating;
+        baseData.platforms ??= formattedIgdb.platforms;
         baseData.developers ??= formattedIgdb.developers;
         baseData.publishers ??= formattedIgdb.publishers;
         baseData.screenshots ??= formattedIgdb.screenshots;

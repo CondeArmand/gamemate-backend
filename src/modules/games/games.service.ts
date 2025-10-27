@@ -6,9 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config'; // Usaremos ConfigService para as variáveis de ambiente
+import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import { TwitchToken, IGDBGame, IGDBInvolvedCompany } from './types/igdb.types';
+import { IGDBGame, IGDBInvolvedCompany, TwitchToken } from './types/igdb.types';
 import stringSimilarity from 'string-similarity';
 import { GameRepository } from '../../repositories/game.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
@@ -27,37 +27,20 @@ export class GamesService {
     private readonly userOwnedGameRepository: UserOwnedGameRepository,
   ) {}
 
-  private async getAccessToken(): Promise<string> {
-    if (this.token && Date.now() < this.tokenExpiryTime) {
-      return this.token.access_token;
+  async searchGames(searchTerm: string): Promise<any[]> {
+    if (!searchTerm || searchTerm.trim() === '') {
+      throw new BadRequestException('O termo de busca não pode ser vazio.');
     }
 
-    this.logger.log('Gerando novo token de acesso da Twitch...');
-    const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('IGDB_CLIENT_SECRET');
-    const url = `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`;
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService.post<TwitchToken>(url),
-      );
-      this.token = response.data;
-
-      this.tokenExpiryTime = Date.now() + (this.token.expires_in - 60) * 1000;
-      this.logger.log('Novo token de acesso gerado com sucesso.');
-      return this.token.access_token;
-    } catch (error) {
-      this.logger.error('Falha ao obter token de acesso da Twitch', error);
-      throw new InternalServerErrorException(
-        'Não foi possível autenticar com o serviço de jogos.',
-      );
+    const response = await this.searchGamesByName(searchTerm);
+    if (!response || response.length === 0) {
+      this.logger.warn(`Nenhum jogo encontrado para o termo "${searchTerm}".`);
+      return Promise.resolve([]);
     }
+
+    return response.map((game) => this.formatIgdbGameData(game));
   }
 
-  /**
-   * Busca jogos na API da IGDB.
-   * @param searchTerm Termo de busca para os jogos.
-   */
   async searchGamesByName(searchTerm: string): Promise<any[]> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
@@ -95,12 +78,12 @@ export class GamesService {
         return [];
       }
 
-      return response.data.map((game) => this.formatIgdbGameData(game));
+      return response.data || [];
     } catch (error) {
       this.logger.error(
         `Falha ao buscar jogos para o termo "${searchTerm}"`,
         error.message,
-      ); // Loga a mensagem do erro original
+      );
       throw new InternalServerErrorException(
         'Falha ao buscar dados dos jogos.',
       );
@@ -139,7 +122,7 @@ export class GamesService {
           },
         ),
       );
-      // Ajusta as URLs de capa e screenshots para ter uma melhor qualidade
+
       return response.data.map((game) => this.formatGameData(game));
     } catch (error) {
       this.logger.error(
@@ -179,7 +162,6 @@ export class GamesService {
         ),
       );
 
-      // Se encontrar, retorna o primeiro (e único) resultado
       if (response.data && response.data.length > 0) {
         this.logger.log(
           `Correspondência exata encontrada na IGDB para o Steam AppID ${steamAppId}: "${response.data[0].name}"`,
@@ -192,22 +174,20 @@ export class GamesService {
         `Falha ao buscar jogo por Steam AppID "${steamAppId}"`,
         error.response?.data ?? error.message,
       );
-      return null; // Retorna null em caso de erro para a cascata continuar
+      return null;
     }
   }
 
   async findBestMatchByName(gameName: string): Promise<IGDBGame | null> {
-    // Primeiro, fazemos a busca geral pelo nome
     const searchResults = await this.searchGamesByName(gameName);
 
     if (!searchResults || searchResults.length === 0) {
-      return null; // Não há resultados para comparar
+      return null;
     }
 
     const steamGameName = gameName.toLowerCase();
     const igdbGameNames = searchResults.map((game) => game.name.toLowerCase());
 
-    // Encontra a melhor correspondência no array de nomes
     const bestMatch = stringSimilarity.findBestMatch(
       steamGameName,
       igdbGameNames,
@@ -217,13 +197,11 @@ export class GamesService {
       `Fuzzy match para "${gameName}": melhor correspondência é "${bestMatch.bestMatch.target}" com pontuação ${bestMatch.bestMatch.rating.toFixed(2)}`,
     );
 
-    // Consideramos uma boa correspondência se a pontuação for > 0.7 (70%)
     if (bestMatch.bestMatch.rating > 0.7) {
       const bestMatchIndex = bestMatch.bestMatchIndex;
-      return searchResults[bestMatchIndex]; // Retorna o objeto de jogo completo
+      return searchResults[bestMatchIndex];
     }
 
-    // Se a pontuação for muito baixa, consideramos que não houve uma boa correspondência
     return null;
   }
 
@@ -267,7 +245,6 @@ export class GamesService {
         `Falha ao buscar jogo por IGDB ID "${igdbId}"`,
         error.response?.data ?? error.message,
       );
-      // Retorna null em caso de erro para que o fluxo do worker possa continuar.
       return null;
     }
   }
@@ -329,6 +306,60 @@ export class GamesService {
     return response;
   }
 
+  public formatIgdbGameData(game: IGDBGame) {
+    const { developers, publishers } = this.parseInvolvedCompanies(
+      game.involved_companies,
+    );
+
+    return {
+      id: game.id.toString(),
+      name: game.name,
+      summary: game.summary,
+      coverUrl: game.cover?.url?.replace('t_thumb', 't_cover_big_2x'),
+      rating: game.total_rating,
+      releaseDate: game.first_release_date
+        ? new Date(game.first_release_date * 1000)
+        : null,
+      genres: game.genres?.map((g) => g.name) || [],
+      platforms: game.platforms?.map((p) => p.name) || [],
+      screenshots:
+        game.screenshots?.map((s) =>
+          s.url?.replace('t_thumb', 't_screenshot_huge'),
+        ) ||
+        [] ||
+        game.screenshots,
+      developers,
+      publishers,
+    };
+  }
+
+  private async getAccessToken(): Promise<string> {
+    if (this.token && Date.now() < this.tokenExpiryTime) {
+      return this.token.access_token;
+    }
+
+    this.logger.log('Gerando novo token de acesso da Twitch...');
+    const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('IGDB_CLIENT_SECRET');
+    const url = `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<TwitchToken>(url),
+      );
+      this.token = response.data;
+
+      this.tokenExpiryTime = Date.now() + (this.token.expires_in - 60) * 1000;
+      this.logger.log('Novo token de acesso gerado com sucesso.');
+      return this.token.access_token;
+    } catch (error) {
+      this.logger.error('Falha ao obter token de acesso da Twitch', error);
+      throw new InternalServerErrorException(
+        'Não foi possível autenticar com o serviço de jogos.',
+      );
+    }
+  }
+
   private async enrichAndCreateFromIgdb(igdbId: string): Promise<Game | null> {
     this.logger.log(
       `[Resolve] Jogo com IGDB ID ${igdbId} não encontrado localmente. Buscando na IGDB...`,
@@ -336,7 +367,6 @@ export class GamesService {
     const igdbGame = await this.findGameByIgdbId(igdbId); // Método que já tínhamos
     if (!igdbGame) return null;
 
-    // Lógica de enriquecimento simplificada
     const gameData: Prisma.GameCreateInput = {
       igdbId: igdbGame.id.toString(),
       name: igdbGame.name,
@@ -347,37 +377,18 @@ export class GamesService {
         : null,
       genres: igdbGame.genres?.map((g) => g.name) || [],
       platforms: igdbGame.platforms?.map((p) => p.name) || [],
-      // Tenta buscar a capa
+      developers: this.parseInvolvedCompanies(igdbGame.involved_companies)
+        .developers,
+      publishers: this.parseInvolvedCompanies(igdbGame.involved_companies)
+        .publishers,
       coverUrl: igdbGame.cover?.url?.replace('t_thumb', 't_cover_big') || null,
-    };
-
-    // Salva no banco usando o smartUpsert para evitar duplicatas
-    return this.gameRepository.smartUpsert(gameData);
-  }
-
-  public formatIgdbGameData(game: IGDBGame) {
-    const { developers, publishers } = this.parseInvolvedCompanies(
-      game.involved_companies,
-    );
-
-    return {
-      id: game.id.toString(),
-      name: game.name,
-      summary: game.summary,
-      cover: game.cover?.url.replace('t_thumb', 't_cover_big_2x'),
-      rating: game.total_rating,
-      releaseDate: game.first_release_date
-        ? new Date(game.first_release_date * 1000)
-        : null,
-      genres: game.genres?.map((g) => g.name) || [],
-      platforms: game.platforms?.map((p) => p.name) || [],
       screenshots:
-        game.screenshots?.map((s) =>
+        igdbGame.screenshots?.map((s) =>
           s.url.replace('t_thumb', 't_screenshot_huge'),
         ) || [],
-      developers,
-      publishers,
     };
+
+    return this.gameRepository.smartUpsert(gameData);
   }
 
   private parseInvolvedCompanies(companies: IGDBInvolvedCompany[]): {
