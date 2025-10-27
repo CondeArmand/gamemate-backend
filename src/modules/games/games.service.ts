@@ -41,10 +41,6 @@ export class GamesService {
     return response.map((game) => this.formatIgdbGameData(game));
   }
 
-  /**
-   * Busca jogos na API da IGDB.
-   * @param searchTerm Termo de busca para os jogos.
-   */
   async searchGamesByName(searchTerm: string): Promise<any[]> {
     const accessToken = await this.getAccessToken();
     const clientId = this.configService.get<string>('IGDB_CLIENT_ID');
@@ -87,7 +83,7 @@ export class GamesService {
       this.logger.error(
         `Falha ao buscar jogos para o termo "${searchTerm}"`,
         error.message,
-      ); // Loga a mensagem do erro original
+      );
       throw new InternalServerErrorException(
         'Falha ao buscar dados dos jogos.',
       );
@@ -126,7 +122,7 @@ export class GamesService {
           },
         ),
       );
-      // Ajusta as URLs de capa e screenshots para ter uma melhor qualidade
+
       return response.data.map((game) => this.formatGameData(game));
     } catch (error) {
       this.logger.error(
@@ -166,7 +162,6 @@ export class GamesService {
         ),
       );
 
-      // Se encontrar, retorna o primeiro (e único) resultado
       if (response.data && response.data.length > 0) {
         this.logger.log(
           `Correspondência exata encontrada na IGDB para o Steam AppID ${steamAppId}: "${response.data[0].name}"`,
@@ -179,7 +174,7 @@ export class GamesService {
         `Falha ao buscar jogo por Steam AppID "${steamAppId}"`,
         error.response?.data ?? error.message,
       );
-      return null; // Retorna null em caso de erro para a cascata continuar
+      return null;
     }
   }
 
@@ -202,7 +197,6 @@ export class GamesService {
       `Fuzzy match para "${gameName}": melhor correspondência é "${bestMatch.bestMatch.target}" com pontuação ${bestMatch.bestMatch.rating.toFixed(2)}`,
     );
 
-    // Consideramos uma boa correspondência se a pontuação for > 0.7 (70%)
     if (bestMatch.bestMatch.rating > 0.7) {
       const bestMatchIndex = bestMatch.bestMatchIndex;
       return searchResults[bestMatchIndex];
@@ -251,7 +245,6 @@ export class GamesService {
         `Falha ao buscar jogo por IGDB ID "${igdbId}"`,
         error.response?.data ?? error.message,
       );
-      // Retorna null em caso de erro para que o fluxo do worker possa continuar.
       return null;
     }
   }

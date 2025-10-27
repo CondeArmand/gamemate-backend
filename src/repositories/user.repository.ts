@@ -62,9 +62,6 @@ export class UserRepository {
     }
   }
 
-  /**
-   * Encontra um usuário pelo seu ID (Firebase UID).
-   */
   async findById(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({
       where: { id },

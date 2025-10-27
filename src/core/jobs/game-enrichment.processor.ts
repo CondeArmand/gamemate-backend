@@ -6,10 +6,10 @@ import { performance } from 'perf_hooks';
 import { Prisma, Provider } from '@prisma/client';
 import { GameRepository } from '../../repositories/game.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
-import { GamesService } from '../games/games.service';
-import { SteamGridDbService } from '../steamgriddb/steamgriddb.service';
-import { SteamService } from '../steam/steam.service';
-import { SteamGameDetails } from '../steam/types/steamTypes';
+import { GamesService } from '../../modules/games/games.service';
+import { SteamGridDbService } from '../../modules/steamgriddb/steamgriddb.service';
+import { SteamService } from '../../modules/steam/steam.service';
+import { SteamGameDetails } from '../../modules/steam/types/steamTypes';
 import { parseSteamDate } from './helpers/date-parser.helper';
 
 interface EnrichGameJobData {

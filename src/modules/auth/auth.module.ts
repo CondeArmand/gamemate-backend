@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { FirebaseModule } from '../../firebase/firebase.module';
+import { FirebaseModule } from '../../core/firebase/firebase.module';
 import { FirebaseTokenValidator } from './validators/firebase-token.validator';
 import { FirebaseRollbackHelper } from './helpers/firebase-rollback.helper';
 import { PassportModule } from '@nestjs/passport';
 import { SteamAuthGuard } from './guards/steam-auth.guard';
-import { JobsModule } from '../jobs/jobs.module';
+import { JobsModule } from '../../core/jobs/jobs.module';
 import { SteamAuthModule } from './steam.module';
 
 @Module({

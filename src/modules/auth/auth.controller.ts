@@ -64,9 +64,7 @@ export class AuthController {
 
   @Get('steam/authenticate')
   @UseGuards(AuthGuard('steam'))
-  steamAuthRedirect() {
-    // Intencionalmente vazio. O AuthGuard cuida do redirecionamento para a Steam.
-  }
+  steamAuthRedirect() {}
 
   @Get('steam/callback')
   @UseGuards(AuthGuard('steam'))

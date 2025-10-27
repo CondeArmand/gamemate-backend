@@ -8,7 +8,7 @@ import {
 import { RegisterUserDto } from './dto/register-user.dto';
 import { FirebaseTokenValidator } from './validators/firebase-token.validator';
 import { FirebaseRollbackHelper } from './helpers/firebase-rollback.helper';
-import { UserRepository } from 'src/repositories/user.repository';
+import { UserRepository } from '../../repositories/user.repository';
 import { LinkedAccountRepository } from '../../repositories/linked-account.repository';
 import { Provider } from '@prisma/client';
 
@@ -82,10 +82,9 @@ export class AuthService {
       `Vinculando conta Steam (ID: ${steamId}) ao usuário GameMate (ID: ${userId})`,
     );
 
-    // Usa o repositório para criar ou atualizar o registro
     return this.linkedAccountRepository.upsert({
       userId: userId,
-      provider: Provider.STEAM, // Usa o valor do Enum do Prisma
+      provider: Provider.STEAM,
       providerAccountId: steamId,
       username: steamUsername,
     });

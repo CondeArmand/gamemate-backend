@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRepository } from 'src/repositories/user.repository';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
 import { GameStatus, Provider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +13,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { FirebaseRollbackHelper } from '../auth/helpers/firebase-rollback.helper';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { GetOwnedGamesDto } from './dto/get-owned-games.dto';
+import { UserRepository } from '../../repositories/user.repository';
 
 @Injectable()
 export class UsersService {
@@ -86,10 +86,9 @@ export class UsersService {
 
   async unlinkStoreAccount(userId: string, provider: Provider) {
     return this.prisma.$transaction(async (tx) => {
-      // Passo A: Encontrar o ID da conta vinculada para ter certeza de que ela existe
       const linkedAccount = await tx.linkedAccount.findUnique({
         where: { userId_provider: { userId, provider } },
-        select: { id: true }, // Seleciona apenas o ID
+        select: { id: true },
       });
 
       if (!linkedAccount) {

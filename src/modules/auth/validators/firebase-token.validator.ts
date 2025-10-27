@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { FirebaseService } from '../../../firebase/firebase.service';
+import { FirebaseService } from '../../../core/firebase/firebase.service';
 import { DecodedIdToken } from 'firebase-admin/auth';
 
 @Injectable()
