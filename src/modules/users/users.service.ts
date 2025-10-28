@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { UserOwnedGameRepository } from '../../repositories/user-owned-game.repository';
@@ -14,6 +16,7 @@ import { FirebaseRollbackHelper } from '../auth/helpers/firebase-rollback.helper
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { GetOwnedGamesDto } from './dto/get-owned-games.dto';
 import { UserRepository } from '../../repositories/user.repository';
+import { CloudinaryService } from '../../core/cloudinary/cloudinary.service';
 
 @Injectable()
 export class UsersService {
@@ -23,6 +26,7 @@ export class UsersService {
     private readonly gameRepository: GameRepository,
     private readonly prisma: PrismaService,
     private readonly firebaseRollbackHelper: FirebaseRollbackHelper,
+    private readonly cloudinaryService: CloudinaryService,
     @InjectQueue('game-sync') private readonly gameSyncQueue: Queue,
   ) {}
 
@@ -198,5 +202,67 @@ export class UsersService {
       userId: userId,
       steamId: linkedAccount.providerAccountId,
     });
+  }
+
+  async uploadAvatar(uid: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo de imagem foi enviado.');
+    }
+
+    try {
+      const result = await this.cloudinaryService.uploadStream(file);
+      const avatarUrl = result.secure_url;
+
+      await this.userRepository.update(uid, { avatarUrl });
+
+      return { avatarUrl };
+    } catch (e) {
+      console.error(e);
+      throw new InternalServerErrorException(
+        'Falha ao fazer upload da imagem.',
+      );
+    }
+  }
+
+  async getUserStates(uid: string) {
+    const statusCounts = await this.prisma.userOwnedGame.groupBy({
+      by: ['status'],
+      where: { userId: uid },
+      _count: {
+        status: true,
+      },
+    });
+
+    const ownedGamesWithGenres = await this.prisma.userOwnedGame.findMany({
+      where: { userId: uid },
+      select: {
+        game: {
+          select: {
+            genres: true,
+          },
+        },
+      },
+    });
+
+    const genreCounts: { [genre: string]: number } = {};
+    ownedGamesWithGenres.forEach((ownedGame) => {
+      ownedGame.game.genres.forEach((genre) => {
+        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+      });
+    });
+
+    const user = await this.userRepository.findById(uid);
+
+    return {
+      totalPlaytimeMinutes: user.totalPlaytimeMinutes,
+      totalHoursPlayed: parseFloat((user.totalPlaytimeMinutes / 60).toFixed(1)),
+      gamesByStatus: statusCounts.reduce((acc, curr) => {
+        acc[curr.status] = curr._count.status;
+        return acc;
+      }, {}),
+      genres: Object.entries(genreCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count), // Ordena por mais jogados
+    };
   }
 }

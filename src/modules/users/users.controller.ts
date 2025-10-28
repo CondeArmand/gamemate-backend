@@ -9,10 +9,12 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { FirebaseAuthGuard } from 'src/modules/auth/guards/firebase-auth.guard';
+import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import {
   AuthenticatedUser,
   CurrentUser,
@@ -21,12 +23,29 @@ import { GameStatus, Provider } from '@prisma/client';
 import { AddGameDto } from './dto/add-game.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { GetOwnedGamesDto } from './dto/get-owned-games.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // --- Rotas do Perfil do Usuário (/me) ---
+
+  @Post('me/avatar')
+  @UseGuards(FirebaseAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.uploadAvatar(user.uid, file);
+  }
+
+  @Get('me/stats')
+  @UseGuards(FirebaseAuthGuard)
+  getStates(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getUserStates(user.uid);
+  }
 
   @Get('me')
   @UseGuards(FirebaseAuthGuard)

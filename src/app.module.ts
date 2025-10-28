@@ -16,6 +16,7 @@ import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { SteamGridDbModule } from './modules/steamgriddb/steamgriddb.module';
 import { RedisModule } from './redis/redis.module';
+import { CloudinaryModule } from './core/cloudinary/cloudinary.module';
 
 @Global()
 @Module({
@@ -39,9 +40,10 @@ import { RedisModule } from './redis/redis.module';
     }),
     BullBoardModule.forRoot({
       route: '/admin/queues', // O painel ficará acessível em http://localhost:3000/admin/queues
-      adapter: ExpressAdapter, // Define o adaptador do servidor web
+      adapter: ExpressAdapter,
     }),
     RedisModule,
+    CloudinaryModule,
     JobsModule,
     SteamGridDbModule,
     FirebaseModule,

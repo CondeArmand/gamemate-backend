@@ -3,10 +3,12 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { BullModule } from '@nestjs/bull';
 import { AuthModule } from '../auth/auth.module';
+import { CloudinaryModule } from '../../core/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     AuthModule,
+    CloudinaryModule,
     BullModule.registerQueue({
       name: 'game-sync',
     }),
