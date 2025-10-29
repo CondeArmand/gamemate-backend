@@ -224,18 +224,10 @@ export class UsersService {
     }
   }
 
-  async getUserStates(uid: string) {
-    const statusCounts = await this.prisma.userOwnedGame.groupBy({
-      by: ['status'],
-      where: { userId: uid },
-      _count: {
-        status: true,
-      },
-    });
-
-    const ownedGamesWithGenres = await this.prisma.userOwnedGame.findMany({
-      where: { userId: uid },
-      select: {
+  async getUserStats(userId: string) {
+    const ownedGames = await this.prisma.userOwnedGame.findMany({
+      where: { userId },
+      include: {
         game: {
           select: {
             genres: true,
@@ -244,25 +236,81 @@ export class UsersService {
       },
     });
 
-    const genreCounts: { [genre: string]: number } = {};
-    ownedGamesWithGenres.forEach((ownedGame) => {
-      ownedGame.game.genres.forEach((genre) => {
-        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
-      });
-    });
-
-    const user = await this.userRepository.findById(uid);
-
-    return {
-      totalPlaytimeMinutes: user.totalPlaytimeMinutes,
-      totalHoursPlayed: parseFloat((user.totalPlaytimeMinutes / 60).toFixed(1)),
-      gamesByStatus: statusCounts.reduce((acc, curr) => {
-        acc[curr.status] = curr._count.status;
-        return acc;
-      }, {}),
-      genres: Object.entries(genreCounts)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count), // Ordena por mais jogados
+    const initialStats = {
+      overall: {
+        totalGames: 0,
+        totalPlaytimeMinutes: 0,
+      },
+      byProvider: {} as Record<
+        Provider,
+        {
+          totalGames: number;
+          totalPlaytimeMinutes: number;
+          gamesByStatus: Partial<Record<GameStatus, number>>;
+          genreCounts: Record<string, number>;
+        }
+      >,
     };
+
+    const calculatedStats = ownedGames.reduce((acc, ownedGame) => {
+      const { sourceProvider, status, playtimeMinutes, game } = ownedGame;
+      const playtime = playtimeMinutes || 0;
+
+      if (!acc.byProvider[sourceProvider]) {
+        acc.byProvider[sourceProvider] = {
+          totalGames: 0,
+          totalPlaytimeMinutes: 0,
+          gamesByStatus: {},
+          genreCounts: {},
+        };
+      }
+
+      // Atualiza as estatísticas gerais
+      acc.overall.totalGames += 1;
+      acc.overall.totalPlaytimeMinutes += playtime;
+
+      // Atualiza as estatísticas específicas do provedor
+      const providerStats = acc.byProvider[sourceProvider];
+      providerStats.totalGames += 1;
+      providerStats.totalPlaytimeMinutes += playtime;
+      providerStats.gamesByStatus[status] =
+        (providerStats.gamesByStatus[status] || 0) + 1;
+
+      game.genres.forEach((genre) => {
+        providerStats.genreCounts[genre] =
+          (providerStats.genreCounts[genre] || 0) + 1;
+      });
+
+      return acc;
+    }, initialStats);
+
+    const finalResponse = {
+      overall: {
+        ...calculatedStats.overall,
+        totalHoursPlayed: parseFloat(
+          (calculatedStats.overall.totalPlaytimeMinutes / 60).toFixed(1),
+        ),
+      },
+      byProvider: {},
+    };
+
+    for (const providerKey in calculatedStats.byProvider) {
+      const provider = providerKey as Provider;
+      const providerStats = calculatedStats.byProvider[provider];
+
+      finalResponse.byProvider[provider] = {
+        totalGames: providerStats.totalGames,
+        totalPlaytimeMinutes: providerStats.totalPlaytimeMinutes,
+        totalHoursPlayed: parseFloat(
+          (providerStats.totalPlaytimeMinutes / 60).toFixed(1),
+        ),
+        gamesByStatus: providerStats.gamesByStatus,
+        genres: Object.entries(providerStats.genreCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count),
+      };
+    }
+
+    return finalResponse;
   }
 }

@@ -44,7 +44,7 @@ export class UsersController {
   @Get('me/stats')
   @UseGuards(FirebaseAuthGuard)
   getStates(@CurrentUser() user: AuthenticatedUser) {
-    return this.usersService.getUserStates(user.uid);
+    return this.usersService.getUserStats(user.uid);
   }
 
   @Get('me')
